@@ -33,12 +33,12 @@ def SIE(x0,y0,n1,n2,b,beta,q,xc,theta):
     return kappa
 
 #Source light profile
-newsource = pf.open('../Files/source.fits')[0].data
+newsource = pf.open('../Files/Source_HR.fits')[0].data
 ##N1,N2 are the numbers of pixels in the image plane.
 nt1= 100
 nt2 = 100
 #Size ratio of the source to image number of pixels 
-size = 1
+size = 2
 
 #PSF
 PSF0 = pf.open('../Files/PSF.fits')[0].data
@@ -79,7 +79,7 @@ niter =50
 levels = [0]
 
 #Comment the following to have the level estimation routine run (takes more time)
-levels = pf.open('../Files/Noise_levels_SLIT.fits')[0].data
+levels = pf.open('../Files/Noise_levels_SLIT_HR.fits')[0].data
 
 #Start clock
 start = time.clock()

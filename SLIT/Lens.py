@@ -5,61 +5,9 @@ import scipy.signal as scp
 import warnings
 warnings.simplefilter("ignore")
 
-def SIS(n1, n2, x0,y0, Re):
-    #
-    #Generate a lens mass profile as a Singular Isothermic Spheroid with size n1xn2
-    #Centered in (x0,y0) with Einstein Radii Re
 
-    x,y = np.where(np.zeros([n1,n1])==0)
-    kappa = np.zeros([n1,n2])
-    kappa[x,y] = Re/(2*np.sqrt((x-x0)**2+(y-y0)**2))
+#Tool box for lensing
 
-    return kappa
-
-def NSIS(n1,n2,x0,y0,Re,Rc):
-    #
-    #Generate a lens mass profile as a NSingular Isothermic Spheroid with size n1xn2
-    #Centered in (x0,y0) with Einstein Radii Re
-    
-    x,y = np.where(np.zeros([n1,n2])==0)
-    kappa = np.zeros([n1,n2])
-    kappa[x,y] = Re/Rc*(1+((x-x0)**2+(y-y0)**2)/(2*Rc**2))*(1+((x-x0)**2+(y-y0)**2)/(Rc**2))**(-1.5)
-    return kappa
-
-def Dcomplex(x,y):
-    n1 = np.sqrt(x.size)
-    n2 = np.sqrt(y.size)
-    x = x-n1/2
-    y = y-n2/2
-    D1 = np.zeros((n1,n2))
-    D2 = np.zeros((n1,n2))+0.
- 
-    for i in range(x.size):
-        rho = (x[i]**4+y[i]**4)+2*(x[i]*y[i])**2
-        D1[x[i]+n1/2,y[i]+n2/2] = (y[i]**2-x[i]**2)/rho
-        D2[x[i]+n1/2,y[i]+n2/2] = (-2*x[i]*y[i])/rho
-
-    return D1,D2
-
-def gamma(kappa):
-    n1,n2 = np.shape(kappa)
-    g1 = np.zeros((n1,n2))
-    g2 = np.zeros((n1,n2))
-    x,y = np.where(g1 == 0)
-    D1,D2 = Dcomplex(x,y)
-    g1 = (1/np.pi)*scp.convolve2d(D1,kappa, mode = 'same', boundary = 'wrap')
-    g2 = (1/np.pi)*scp.convolve2d(D2,kappa, mode = 'same', boundary = 'wrap')
-    return g1,g2
-
-
-def make_big(array,l):
-    n1,n2 = np.shape(array)
-    for i in range(l):
-        array = np.append(np.reshape(array[0,:],(1,array[0,:].size)),array,axis = 0)
-        array = np.append(array,np.reshape(array[-1,:],(1,array[-1,:].size)),axis = 0)
-        array = np.append(np.reshape(array[:,0],(array[:,0].size,1)),array,axis = 1)
-        array = np.append(array,np.reshape(array[:,-1],(array[:,-1].size,1)),axis = 1)
-    return array
 
 
 def alpha_def(kappa, n1,n2,x0,y0,extra):
@@ -71,8 +19,8 @@ def alpha_def(kappa, n1,n2,x0,y0,extra):
     #Coordonnees de la grille de l'espace image
     [x,y] = np.where(np.zeros([n1,n2])==0)
     
-    xc = np.reshape((x)-x0+1.,(n1,n2))#+extra/2.
-    yc = np.reshape((y)-y0+1.,(n1,n2))#+extra/2.
+    xc = np.reshape((x)-x0+1.,(n1,n2))
+    yc = np.reshape((y)-y0+1.,(n1,n2))
     
 
     r = np.reshape((xc**2+yc**2),(n1,n2))
@@ -83,9 +31,7 @@ def alpha_def(kappa, n1,n2,x0,y0,extra):
     taby[lx,ly]=0
 
     l = 0
- #   tabx = make_big(tabx,l)
-#    taby = make_big(taby,l)
-#    kappa = make_big(kappa,l)
+
 
     kappa = kappa.astype(float)
     tabx = tabx.astype(float)
@@ -114,18 +60,8 @@ def F(kappa, nt1,nt2, size, x0, y0, extra=100,local = False, alpha_file = 'none'
     if local == False:
         nk1,nk2 = np.shape(kappa)
         alpha = np.zeros((2,nt1,nt2))
-        #for i in range(np.size(xk)):
-        #    alpha[:,xk[i],yk[i]] = alpha_def(np.array([xk[i],yk[i]]),kappa)
-        #alpha_x = alpha[0,:,:]
-        #alpha_y = alpha[1,:,:]
         alpha_x,alpha_y = alpha_def(kappa,nt1,nt2,x0,y0,extra)
         
-  #  alpha = alpha_def(np.array([xk,yk]),kappa)#
-#    alpha_x = alpha[0]
-#    alpha_y = alpha[1]
-
- #   alpha_x = pf.open('Lenstools/dpl_y.fits')[0].data/(0.8) #
- #   alpha_y = pf.open('Lenstools/dpl_x.fits')[0].data/(0.8)
 
     alpha[0,:,:] = alpha_x
     alpha[1,:,:] = alpha_y
@@ -151,11 +87,8 @@ def F(kappa, nt1,nt2, size, x0, y0, extra=100,local = False, alpha_file = 'none'
     #Scaling of the source grid
     
     #Scaling of the deflection grid
-    xa = xa*(np.float(nt1)/np.float(na1))-1#./2
-    ya = ya*(np.float(nt2)/np.float(na2))-1#./2
-    #Scaling of the deflection angles
- #   alpha_x = alpha_x
-#    alpha_y = alpha_y
+    xa = xa*(np.float(nt1)/np.float(na1))-1
+    ya = ya*(np.float(nt2)/np.float(na2))-1
     #Setting images coordinates in 2d
     xa2d = np.reshape(xa,(na1,na2))
     ya2d = np.reshape(ya,(na1,na2))
@@ -180,12 +113,7 @@ def F(kappa, nt1,nt2, size, x0, y0, extra=100,local = False, alpha_file = 'none'
 
             F.append([0])
         else:
-
             F.append(np.int_(np.array(loc)))
-    hdus = pf.PrimaryHDU(alpha)
-    lists = pf.HDUList([hdus])
-    lists.writeto('alphas.fits', clobber=True)
-    
     return F
 
 
