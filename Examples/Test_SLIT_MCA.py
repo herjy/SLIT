@@ -63,14 +63,11 @@ gal0 = pf.open('../Files/Galaxy.fits')[0].data
 
 #Generation of lensed source
 I2 = slit.Lens.source_to_image(newsource, nt1 ,nt2 , Fkappa)
-
+HI2 = scp.fftconvolve(I2, PSF.astype(float), mode = 'same')
 
 #Noise levels
 SNR = 500
 sigma = np.sqrt(np.sum(I2**2)/SNR/(nt1*nt2*size**2))
-
-#Convolution by the PSF and generation of the final image
-I2 = scp.fftconvolve(I2, PSF, mode = 'same')
 
 #Convolution of the observed image
 simu = scp.fftconvolve(gal0.astype(float)+I2, PSF.astype(float), mode = 'same')
@@ -94,7 +91,7 @@ levels = pf.open('../Files/Noise_levels_SLIT_MCA.fits')[0].data
 start = time.clock()
 
 #Running SLIT_MCA
-sourcesl, Imsl, G = slit.SLIT_MCA(Image, Fkappa, kmax, niter,riter, size,PSF, PSFconj, levels = levels)
+S, FS, G = slit.SLIT_MCA(Image, Fkappa, kmax, niter,riter, size,PSF, PSFconj, levels = levels)
 
 #Stop clock
 elapsed = (time.clock()-start)
@@ -104,11 +101,11 @@ print('execution time:', elapsed, 'seconds')
 real_source = newsource
 
 source_error = np.sum(np.abs(real_source[np.where(real_source!=0)]
-                                           -sourcesl[np.where(real_source!=0)])**2
+                                           -S[np.where(real_source!=0)])**2
                                            /real_source[np.where(real_source!=0)]**2)/(np.size(
                                            np.where(real_source!=0))/2.)
 
-image_chi2 = np.std(Image-Imsl-G)**2/sigma**2
+image_chi2 = np.std(Image-FS-G)**2/sigma**2
 print('Residuals in source space', source_error)
 print('Residuals in image space',image_chi2)
 
@@ -117,7 +114,7 @@ for i in [1]:
 
     plt.figure(0)
     plt.title('Source from SLIT')
-    plt.imshow((sourcesl), vmin = np.min(real_source), vmax = np.max(real_source), cmap = cm.gist_stern, interpolation = 'nearest')
+    plt.imshow((S), vmin = np.min(real_source), vmax = np.max(real_source), cmap = cm.gist_stern, interpolation = 'nearest')
     plt.axis('off')
     plt.colorbar()
 
@@ -129,26 +126,26 @@ for i in [1]:
 
     plt.figure(2)
     plt.title('relative difference')
-    diff = (real_source-sourcesl)
+    diff = (real_source-S)
     plt.imshow((np.abs(diff)), cmap = cm.gist_stern, interpolation = 'nearest')
     plt.axis('off')
     plt.colorbar()
     ####Lensed source
     plt.figure(3)
     plt.title('Original lensed galaxy')
-    plt.imshow(I2, cmap = cm.gist_stern, interpolation = 'nearest')
+    plt.imshow(HI2, cmap = cm.gist_stern, interpolation = 'nearest')
     plt.axis('off')
     plt.colorbar()
 
     plt.figure(4)
     plt.title('reconstructed lensed source')
-    plt.imshow((Imsl), vmin = np.min(I2), vmax = np.max(I2), cmap = cm.gist_stern, interpolation = 'nearest')
+    plt.imshow((FS), vmin = np.min(I2), vmax = np.max(I2), cmap = cm.gist_stern, interpolation = 'nearest')
     plt.axis('off')
     plt.colorbar()
 
     plt.figure(5)
     plt.title('error on the source in image plane')
-    plt.imshow((I2-Imsl), cmap = cm.gist_stern, interpolation = 'nearest')
+    plt.imshow((HI2-FS), cmap = cm.gist_stern, interpolation = 'nearest')
     plt.axis('off')
     plt.colorbar()
     ###Galaxy
@@ -178,13 +175,13 @@ for i in [1]:
 
     plt.figure(9)
     plt.title('Reconstructed image')
-    plt.imshow(Imsl+G, cmap = cm.gist_stern, interpolation = 'nearest')
+    plt.imshow(FS+G, cmap = cm.gist_stern, interpolation = 'nearest')
     plt.axis('off')
     plt.colorbar()
 
     plt.figure(10)
     plt.title('difference with reconstructed image')
-    plt.imshow(Image-Imsl-G,cmap = cm.gist_stern, interpolation = 'nearest', vmin = -5*sigma, vmax = 5*sigma)#slit.fft_convolve(Im,PSF)
+    plt.imshow(Image-FS-G,cmap = cm.gist_stern, interpolation = 'nearest', vmin = -5*sigma, vmax = 5*sigma)#slit.fft_convolve(Im,PSF)
     plt.axis('off')
     plt.colorbar()
 

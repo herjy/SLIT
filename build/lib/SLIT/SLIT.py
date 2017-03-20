@@ -67,6 +67,7 @@ def SLIT(img, Fkappa, kmax, niter, size, PSF,  PSFconj, levels = [0], mask = [0]
 
     #Noise simulations to estimate noise levels in source plane
     if np.sum(levels)==0:
+        print('Calculating noise levels')
         levels = simulate_noise(nt1,nt2, size, Fkappa, lensed, PSFconj)
         #Saves levels
         hdus = pf.PrimaryHDU(levels)
@@ -203,6 +204,7 @@ def SLIT_MCA(img, Fkappa, kmax, niter, riter, size,PSF, PSFconj, levels = [0], m
     levelg = level(nt1,nt1)
     #Noise simulations to estimate noise levels in source plane
     if np.sum(levels)==0:
+        print('Calculating noise levels')
         levels = simulate_noise(nt1,nt2, size, Fkappa, lensed, PSFconj)
         #Saves levels
         hdus = pf.PrimaryHDU(levels)
@@ -236,8 +238,6 @@ def SLIT_MCA(img, Fkappa, kmax, niter, riter, size,PSF, PSFconj, levels = [0], m
 
 
     #Initialisations
-    RS = Lens.image_to_source(img, size, Fkappa, lensed = lensed)
-    RG = np.copy(img)
     if np.sum(Ginit)==0:
         G = np.random.randn(nt1,nt2)*sigma0
     else:
@@ -315,8 +315,7 @@ def SLIT_MCA(img, Fkappa, kmax, niter, riter, size,PSF, PSFconj, levels = [0], m
     G = mw.iuwt(alphag)
     S[np.where(S<0)] = 0
     FS = Lens.source_to_image(S, nt1, nt2,Fkappa)
-    if np.sum(PSF)!=0:
-        FS = scp.fftconvolve(FS,PSF,mode = 'same')
+    FS = scp.fftconvolve(FS,PSF,mode = 'same')
     
     return S, FS,G
 
