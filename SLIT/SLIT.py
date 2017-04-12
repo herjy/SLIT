@@ -44,7 +44,7 @@ def SLIT(img, Fkappa, kmax, niter, size, PSF,  PSFconj, levels = [0], mask = [0]
     ##EXAMPLE:
     ##  S,FS = SLIT(img, Fkappa, 5, 100, 1, PSF,  PSFconj)
 
-    
+    PSFconj = PSF.T
     nt1,nt2 = np.shape(img)
     
     #Size of the source
@@ -181,6 +181,7 @@ def SLIT_MCA(img, Fkappa, kmax, niter, riter, size,PSF, PSFconj, levels = [0], m
     ##EXAMPLE:
     ##  S,FS = SLIT(img, Fkappa, 5, 100, 1, PSF,  PSFconj)
 
+    PSFconj = PSF.T
     #Shape of the image
     nt1,nt2 = np.shape(img)
     #Initialisation of the source
@@ -198,8 +199,7 @@ def SLIT_MCA(img, Fkappa, kmax, niter, riter, size,PSF, PSFconj, levels = [0], m
     #Mapping of an all-at-one image
     lensed = lens_one(Fkappa, nt1,nt2, size)
     #Limits of the image plane in source plane
-    bound = lensed/lensed
-    bound[lensed == 0] = 0
+    bound = mk_bound(Fkappa, nt1,nt2, size)
     #Noise levels in image plane  in starlet space
     levelg = level(nt1,nt1)
     #Noise simulations to estimate noise levels in source plane
@@ -420,6 +420,23 @@ def lens_one(Fkappa, nt1,nt2,size):
     lensed = Lens.image_to_source(dirac, size,Fkappa,lensed = [0])
     return lensed
 
+def mk_bound(Fkappa, nt1,nt2,size):
+    ##DESCRIPTION:
+    ##    Function that returns the support of the lens image in source plane.
+    ##
+    ##INPUTS:
+    ##  -Fkappa: the mapping between source and image planes
+    ##  -nt1,nt2: the shape of the image.
+    ##  -size: the factor that scales the shape of the source relative to the shape of the image
+    ##
+    ##OUTPUTS:
+    ##  -lensed: the projection to source plane of an all at aone image.
+    dirac = np.ones((nt1,nt2))
+    lensed = Lens.image_to_source_bound(dirac, size,Fkappa,lensed = [0])
+    bound = lensed/lensed
+    bound[lensed==0]=0
+    return bound
+
 
 def MAD(x,n=3):
     ##DESCRIPTION:
@@ -455,7 +472,7 @@ def ST(alpha, k, levels, sigma):
     ##  -alpha: The thresholded coefficients.
     lvl, n1,n2 = np.shape(alpha)
     th = np.ones((lvl,n1,n2))*k
-    th[0,:,:] = th[0,:,:]+1
+    th[0,:,:] = th[0,:,:]+3
     th[-1,:,:] = 0
 
     
@@ -490,14 +507,8 @@ def simulate_noise(nt1,nt2, size, Fkappa, lensed, PSFconj):
     nb1,nb2 = nt1*size, nt2*size
     lvl = np.int(np.log2(nb1))
     w_levels = np.zeros((lvl,nb1,nb2))
-    
-    dirac = np.zeros((nb1,nb2))
-    dirac[nb1/2.,nb2/2.] = 1.
 
-    wave_dirac = mw.wave_transform(dirac, lvl, newwave = 1)
-    lens = 0
     lvl = np.int_(np.log2(nb1))
-    nn = 2**(lvl+2)
     storage = np.zeros((lvl, nb1,nb2,n))
     for i in range(np.int(n)):
         noise = np.random.randn(nt1,nt2)

@@ -96,6 +96,7 @@ def F(kappa, nt1,nt2, size, x0, y0, extra=100,local = False, alpha_file = 'none'
 
     
     F = []
+    F2 = []
     rec = []
     for i in range(np.size(xb)):
         #Deflection of photons emitted in xb[i],yb[i]
@@ -105,23 +106,31 @@ def F(kappa, nt1,nt2, size, x0, y0, extra=100,local = False, alpha_file = 'none'
         xprox = np.int_(np.abs((xa2d-theta_x)*2))
         yprox = np.int_(np.abs((ya2d-theta_y)*2))
 
-        if np.min(xprox+yprox) <3:
-            loc = np.where((xprox+yprox)==np.min(xprox+yprox))#
-        else:
-            loc = []
+        loc = np.where((xprox+yprox)==0)#
+
         if (np.size(loc)==0):
 
             F.append([0])
         else:
             F.append(np.int_(np.array(loc)))
-    return F
+            
+        if np.min(xprox+yprox) <3:
+            loc2 = np.where((xprox+yprox)==np.min(xprox+yprox))#
+        else:
+            loc2 = []
+        if (np.size(loc2)==0):
+
+            F2.append([0])
+        else:
+            F2.append(np.int_(np.array(loc2)))
+    return F,F2
 
 
 def source_to_image(Source, nt1,nt2, theta, ones = 1):
     # Source: Image of the source in the source plane
     # n1,n2: size in pixels of the postage stamp in image plane
     # F: the coordinates of the lens mapping
-    F = (theta)
+    F = (theta[0])
     nb1,nb2 = np.shape(Source)
 
     if ones == 1:
@@ -152,7 +161,7 @@ def image_to_source(Image, size,beta,lensed = 0):
     # nsize1,nsize2: size of the postagestamp in source plane
     # F: lens mapping matrix
 
-    F = (beta)
+    F = (beta[0])
     nt1,nt2 = np.shape(Image)
     nb1 = nt1*size
     nb2 = nt2*size
@@ -171,10 +180,27 @@ def image_to_source(Image, size,beta,lensed = 0):
                         
     return Source
 
+def image_to_source_bound(Image, size,beta,lensed = 0):
+    # Image: postagestamp of the observed image
+    # nsize1,nsize2: size of the postagestamp in source plane
+    # F: lens mapping matrix
 
-
-
-
-
-
+    F = (beta[1])
+    nt1,nt2 = np.shape(Image)
+    nb1 = nt1*size
+    nb2 = nt2*size
+    Source = np.zeros((nb1,nb2))
+    xb,yb = np.where(Source == 0)
+    N = np.size(xb)
+    for k in range(N):
+                    pos = F[k]
+                    if np.size(np.shape(pos)) > 1:
+                        if np.sum(lensed) !=0:
+                            Source[xb[k],yb[k]] += np.sum(Image[np.array(pos[0][:]),
+                                                           np.array(pos[1][:])])/np.max([1,np.size(pos[0][:])])
+                        else:
+                            Source[xb[k],yb[k]] += np.sum(Image[np.array(pos[0][:]),
+                                                           np.array(pos[1][:])])
+                        
+    return Source
 

@@ -27,17 +27,20 @@ kappa = pf.open('../Files/kappa.fits')[0].data
 Fkappa = Lens.F(kappa, nt1,nt2, size,nt1/2.,nt2/2.)
 lensed = slit.lens_one(Fkappa, nt1,nt2, size)
 
+#Levels for normalisation
+lev = slit.level(nt1,nt1)
+
 #Starlet transforms of the lens and source in their respective planes
-wG = mw.wave_transform(G, lvl = 6)
-wS = mw.wave_transform(S, lvl = 6)
+wG = mw.wave_transform(G, lvl = 6)/lev
+wS = mw.wave_transform(S, lvl = 6)/lev
 #Lensed source
 FS = Lens.source_to_image(S, nt1, nt2,Fkappa)
 #Unlensed lens
 FG = Lens.image_to_source(G, size, Fkappa, lensed=lensed)
 #Starlet transform of the unlensed lens
-wFG = mw.wave_transform(FG, 6)
+wFG = mw.wave_transform(FG, 6)/lev
 #Starlet transform of the lensed 
-wFS = mw.wave_transform(FS, 6)
+wFS = mw.wave_transform(FS, 6)/lev
 
 def mk_sort(X):
     Y = np.sort(np.resize(np.abs(X), X.size))
@@ -72,27 +75,35 @@ for i in np.linspace(0,999, 1000):
     error_wG[i] = error_rec_from(wG, i, wave = 1)
     error_wFG[i] = error_rec_from(wFG, i, wave = 1)
 
-
+print('NLA on the source at 10%: ',error_wS[100]/np.max(error_wS))
+print('NLA on the lens at 10%: ', error_wG[100]/np.max(error_wG))
+print('NLA on the lensed source at 10%: ', error_wFS[100]/np.max(error_wFS))
+print('NLA on the delensed lens at 10%: ', error_wFG[100]/np.max(error_wFG))
 #Display
-plt.plot(np.linspace(0,100, 1000), error_S/np.max(error_S), '--r', label = 'Source in direct space', linewidth = 3)
-plt.plot(np.linspace(0,100, 1000), error_G/np.max(error_G), '--b', label = 'Lens in direct space', linewidth = 3)
+plt.figure(1)
 plt.plot(np.linspace(0,100, 1000), error_wS/np.max(error_wS), 'r', label = 'Source in starlet space', linewidth = 3)
-plt.plot(np.linspace(0,100, 1000), error_wG/np.max(error_wG), 'b', label = 'Galaxy in starlet space', linewidth = 3)
-plt.plot(np.linspace(0,100, 1000), error_wFS/np.max(error_wFS), 'm', label = 'Lensed source in starlet space', linewidth = 3)
-plt.plot(np.linspace(0,100, 1000), error_wFG/np.max(error_wFG), 'c', label = 'Unlensed lens in starlet space', linewidth = 3)
+plt.plot(np.linspace(0,100, 1000), error_wFG/np.max(error_wFG), 'c', label = 'Lens in source plane in starlet space', linewidth = 3)
+
 plt.xlabel('percentage of coefficients used in reconstruction', fontsize=25)
 plt.ylabel('Error on reconstruction', fontsize=25)
-plt.title('Non-linear approximation error', fontsize=25)
+plt.title('Non-linear approximation error in source plane', fontsize=25)
 plt.legend(fontsize = 25)
-
 a = plt.axes([0.4, 0.2, 0.45, 0.4])
-
-plt.semilogy(np.linspace(0,100, 1000), (error_wS/np.max(error_wS)), 'r', linewidth = 3)
-plt.semilogy(np.linspace(0,100, 1000), (error_wG/np.max(error_wG)), 'b', linewidth = 3)
-plt.semilogy(np.linspace(0,100, 1000), (error_wFS/np.max(error_wFS)), 'm', linewidth = 3)
 plt.semilogy(np.linspace(0,100, 1000), (error_wFG/np.max(error_wFG)), 'c', linewidth = 3)
-plt.semilogy(np.linspace(0,100, 1000), error_S/np.max(error_S), '--r', linewidth = 3)
-plt.semilogy(np.linspace(0,100, 1000), error_G/np.max(error_G), '--b', linewidth = 3)
+plt.semilogy(np.linspace(0,100, 1000), error_wS/np.max(error_wS), 'r', linewidth = 3)
+plt.xlim(20,100) 
+
+plt.figure(2)
+plt.plot(np.linspace(0,100, 1000), error_wG/np.max(error_wG), 'b', label = 'Galaxy in starlet space', linewidth = 3)
+plt.plot(np.linspace(0,100, 1000), error_wFS/np.max(error_wFS), 'm', label = 'Lensed source in starlet space', linewidth = 3)
+
+plt.xlabel('percentage of coefficients used in reconstruction', fontsize=25)
+plt.ylabel('Error on reconstruction', fontsize=25)
+plt.title('Non-linear approximation error in lens plane', fontsize=25)
+plt.legend(fontsize = 25)
+a = plt.axes([0.4, 0.2, 0.45, 0.4])
+plt.semilogy(np.linspace(0,100, 1000), (error_wFS/np.max(error_wFS)), 'm', linewidth = 3)
+plt.semilogy(np.linspace(0,100, 1000), error_wG/np.max(error_wG), 'b', linewidth = 3)
 plt.xlim(20,100) 
 
 plt.show()
