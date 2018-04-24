@@ -31,16 +31,16 @@ lensed = slit.lens_one(Fkappa, nt1,nt2, size)
 lev = slit.level(nt1,nt1)
 
 #Starlet transforms of the lens and source in their respective planes
-wG = mw.wave_transform(G, lvl = 6)/lev
-wS = mw.wave_transform(S, lvl = 6)/lev
+wG = mw.wave_transform(G, lvl = 6, newwave =1)/lev
+wS = mw.wave_transform(S, lvl = 6, newwave =1)/lev
 #Lensed source
 FS = Lens.source_to_image(S, nt1, nt2,Fkappa)
 #Unlensed lens
 FG = Lens.image_to_source(G, size, Fkappa, lensed=lensed)
 #Starlet transform of the unlensed lens
-wFG = mw.wave_transform(FG, 6)/lev
+wFG = mw.wave_transform(FG, 6, newwave =1)/lev
 #Starlet transform of the lensed 
-wFS = mw.wave_transform(FS, 6)/lev
+wFS = mw.wave_transform(FS, 6, newwave =1)/lev
 
 def mk_sort(X):
     Y = np.sort(np.resize(np.abs(X), X.size))

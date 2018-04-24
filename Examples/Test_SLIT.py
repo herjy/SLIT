@@ -2,7 +2,7 @@ import pyfits as pf
 import matplotlib.pyplot as plt 
 import numpy as np
 import matplotlib.cm as cm
-from scipy import signal as scp
+
 import SLIT 
 import time
 from scipy import signal as scp
@@ -75,7 +75,7 @@ Image = I2+np.random.randn(nt1,nt2)*sigma
 ################################Running SLIT############################
 #Parameters
 kmax = 5
-niter =50
+niter =100
 levels = [0]
 
 #Comment the following to have the level estimation routine run (takes more time)
@@ -85,7 +85,7 @@ levels = pf.open('../Files/Noise_levels_SLIT.fits')[0].data
 start = time.clock()
 
 #Running SLIT
-sourcesl, Imsl = SLIT.SLIT(Image, Fkappa, kmax, niter, size, PSF, PSFconj, levels = levels)
+sourcesl, Imsl = SLIT.SLIT(Image, Fkappa, kmax, niter, size, PSF, PSFconj, levels = levels, fb =1)
 
 #Stop clock
 elapsed = (time.clock()-start)

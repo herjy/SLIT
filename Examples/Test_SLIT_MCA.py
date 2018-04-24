@@ -77,11 +77,23 @@ gal = scp.fftconvolve(gal0.astype(float), PSF.astype(float), mode = 'same')
 #Final simulated image
 Image = simu+np.random.randn(nt1,nt2)*sigma
 
+lensed = slit.lens_one(Fkappa, nt1,nt2, size)
+Test = slit.Lens.image_to_source(I2+gal, size, Fkappa, lensed = lensed)
+
+plt.imshow(Image, cmap = cm.gist_stern, interpolation = 'nearest')
+plt.show()
+plt.imshow(Test, cmap = cm.gist_stern, interpolation = 'nearest')
+plt.show()
+
+hdus = pf.PrimaryHDU(Image)
+lists = pf.HDUList([hdus])
+lists.writeto('Image.fits', clobber=True)
+
 ################################Running SLIT############################
 #Parameters
 kmax = 5
 niter =100
-riter =50
+riter =100
 levels = [0]
 
 #Comment the following to have the level estimation routine run (takes more time)
