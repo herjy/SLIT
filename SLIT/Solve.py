@@ -6,10 +6,10 @@ import astropy.io.fits as pf
 import matplotlib.cm as cm
 from scipy import signal as scp
 import scipy.ndimage.filters as med
-import MuSCADeT as wine
+#import MuSCADeT as wine
 from numpy import linalg as LA
 import multiprocess as mtp
-from pathos.multiprocessing import ProcessingPool as Pool
+#from pathos.multiprocessing import ProcessingPool as Pool
 from SLIT import Lens
 import SLIT.mk_SLIT_plot as SLITplt
 import warnings
@@ -1030,7 +1030,7 @@ def level_source_HR(n1,n2, size, sigma,PSFT, Lens_op2, Up, lvl):
     FHnoise = np.copy(FHnoise_old)
     FHnoise[FHnoise_old==0] = np.mean(FHnoise_old)*10.
     dirac = np.zeros((ns1,ns2))
-    dirac[ns1/2,ns2/2] = 1
+    dirac[int(ns1/2),int(ns2/2)] = 1
     print(dirac.shape, ns1,ns2)
     wave_dirac = tools.wave_transform(dirac, lvl)
     levels = np.zeros(wave_dirac.shape)
@@ -1057,7 +1057,7 @@ def level_source(n1,n2,sigma,size,PSFT, Lens_op2, lensed, lvl):
     FHnoise = np.copy(FHnoise_old)
     FHnoise[FHnoise_old==0] = np.mean(FHnoise_old)*10.
     dirac = np.zeros((ns1,ns2))
-    dirac[ns1/2,ns2/2] = 1
+    dirac[int(ns1/2),int(ns2/2)] = 1
     wave_dirac = tools.wave_transform(dirac, lvl)
     levels = np.zeros(wave_dirac.shape)
     for i in range(lvl):

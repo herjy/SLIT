@@ -155,7 +155,7 @@ def level(n1, n2, lvl):
     ##  -levels: units of noise levels at each scale and location of a starlet transform
     dirac = np.zeros((n1, n2))
     #   lvl = np.int(np.log2(n1))
-    dirac[n1 / 2, n2 / 2] = 1
+    dirac[int(n1 / 2), int(n2 / 2)] = 1
     wave_dirac = wave_transform(dirac, lvl, newwave=0)
 
     wave_sum = np.sqrt(np.sum(np.sum(wave_dirac ** 2, 1), 1))
@@ -271,8 +271,8 @@ def wave_transform(img, lvl, Filter = 'Bspline', newwave = 1, convol2d = 0):
     ## wavelet set of coefficients.
     wave = np.zeros([lvl+1,n1,n2])
   
-    for i in np.linspace(0,lvl-1,lvl):
-        newh = np.zeros((1,n+(n-1)*(2**i-1)))
+    for i in np.linspace(0, lvl-1, lvl, dtype=int):
+        newh = np.zeros((1, n+(n-1)*(2**i-1)))
         newh[0,np.int_(np.linspace(0,np.size(newh)-1,len(h)))] = h
         H = np.dot(newh.T,newh)
 
@@ -322,7 +322,7 @@ def iuwt(wave, convol2d =0):
     cJ = np.copy(wave[lvl-1,:,:])
     
     
-    for i in np.linspace(1,lvl-1,lvl-1):
+    for i in np.linspace(1,lvl-1,lvl-1, dtype=int):
         
         newh = np.zeros((1,n+(n-1)*(2**(lvl-1-i)-1)))
         newh[0,np.int_(np.linspace(0,np.size(newh)-1,len(h)))] = h
