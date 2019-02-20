@@ -1,21 +1,24 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import pyfits as pf
+import astropy.io.fits as pf
 from scipy import signal as scp
-import gaussian as gs
 import scipy.ndimage.filters as sc
 import scipy.ndimage.filters as med
 import scipy.signal as cp
 
-def MOM(A, B, levelA, levelB):
-    A = A[:-1,:,:]
-    B = B[:-1,:,:]
-    levelA = levelA[:-1,:,:]
-    levelB = levelB[:-1,:,:]
-    Amax = np.max(A[levelA!=0]/levelA[levelA!=0])
-    Bmax = np.max(B[levelB!=0]/levelB[levelB!=0])
-    k = np.min([Amax, Bmax])
-    return k+0.1*np.abs(Amax-Bmax)
+
+def MOM(S, G, levelS, levelG):
+    S = S[:-1,:,:]
+    G = G[:-1,:,:]
+    levelS = levelS[:-1,:,:]
+    levelG = levelG[:-1,:,:]
+
+    sel = ((levelS!=0))
+    Smax = np.max(np.abs(S[sel])/levelS[sel])
+    Gmax = np.max(np.abs(G[levelG!=0])/levelG[levelG!=0])
+
+    k = np.min([Smax, Gmax])
+    return k+0.001*np.abs(Smax-Gmax)
 
 def MAD(x,n=3):
     ##DESCRIPTION:
@@ -95,7 +98,6 @@ def level_poisson(n1,n2, lvl,transform,sigma):
     return levels
 
 def Forward_Backward(Y, X, F_op, I_op, transform, inverse, mu, reg, pos = 1, subiter = 0):
-
     R = mu*I_op(Y-F_op(X))
     Xnew = np.copy(X+R)
     Xnew = inverse(reg(transform(Xnew)))
@@ -114,9 +116,11 @@ def SDR(X, Y):
 def Res(X,Y,sigma):
     return np.sqrt(np.sum(((X-Y)/sigma)**2)/X.size)#np.std((X-Y)**2/sigma**2)
 
-
-def FISTA(Y, alphaX, F_op, I_op, mu, ts, csi, reg, transform, inverse, pos = 1, mask = 1):
-    S = inverse(alphaX)
+def FISTA(Y, alphaX, F_op, I_op, mu, ts, csi, reg, transform, inverse, pos = 1, mask = 1, original_fista=False):
+    if not original_fista: 
+        S = inverse(alphaX)
+    else:
+        S = inverse(csi)  # test : back to original FISTA
 
     R = mu*I_op(Y-F_op(S)*mask)
     alpha = transform(R)+csi
@@ -135,9 +139,10 @@ def Soft(X, level, k, supp =1, Kill = 0):
         Xnew[-1,:,:] = 0
     else:
         Xnew[-1, :, :] = X[-1,:,:]
-    
+
     #print(Xnew.shape, supp.shape)
- #   Xnew = Xnew*supp
+    Xnew = Xnew*supp
+
     return Xnew
 
 
@@ -152,7 +157,9 @@ def level(n1, n2, lvl):
     ##  -levels: units of noise levels at each scale and location of a starlet transform
     dirac = np.zeros((n1, n2))
     #   lvl = np.int(np.log2(n1))
-    dirac[n1 / 2, n2 / 2] = 1
+
+    dirac[int(n1 / 2), int(n2 / 2)] = 1
+
     wave_dirac = wave_transform(dirac, lvl, newwave=0)
 
     wave_sum = np.sqrt(np.sum(np.sum(wave_dirac ** 2, 1), 1))
@@ -267,9 +274,10 @@ def wave_transform(img, lvl, Filter = 'Bspline', newwave = 1, convol2d = 0):
     c = img
     ## wavelet set of coefficients.
     wave = np.zeros([lvl+1,n1,n2])
-  
-    for i in np.linspace(0,lvl-1,lvl):
-        newh = np.zeros((1,n+(n-1)*(2**i-1)))
+
+    for i in np.linspace(0, lvl-1, lvl, dtype=int):
+        newh = np.zeros((1, n+(n-1)*(2**i-1)))
+
         newh[0,np.int_(np.linspace(0,np.size(newh)-1,len(h)))] = h
         H = np.dot(newh.T,newh)
 
@@ -318,8 +326,8 @@ def iuwt(wave, convol2d =0):
 
     cJ = np.copy(wave[lvl-1,:,:])
     
-    
-    for i in np.linspace(1,lvl-1,lvl-1):
+
+    for i in np.linspace(1,lvl-1,lvl-1, dtype=int):
         
         newh = np.zeros((1,n+(n-1)*(2**(lvl-1-i)-1)))
         newh[0,np.int_(np.linspace(0,np.size(newh)-1,len(h)))] = h
@@ -336,7 +344,6 @@ def iuwt(wave, convol2d =0):
         cJ = cnew+wave[lvl-1-i,:,:]
 
     return np.reshape(cJ,(n1,n2))
-
 
 def plot_cube(cube):
     ##DESCRIPTION:
@@ -357,3 +364,28 @@ def plot_cube(cube):
         plt.imshow(cube[k,:,:]); plt.colorbar()
 
     return None
+
+def Downsample(image, factor=1):
+    """
+    resizes image with nx x ny to nx/factor x ny/factor
+    :param image: 2d image with shape (nx,ny)
+    :param factor: integer >=1
+    :return:
+    """
+    if factor < 1:
+        raise ValueError('scaling factor in re-sizing %s < 1' %factor)
+    f = int(factor)
+    nx, ny = np.shape(image)
+    if int(nx/f) == nx/f and int(ny/f) == ny/f:
+        small = image.reshape([int(nx/f), f, int(ny/f), f]).mean(3).mean(1)
+        return small
+    else:
+        raise ValueError("scaling with factor %s is not possible with grid size %s, %s" %(f, nx, ny))
+
+def Upsample(image, factor):
+    factor = int(factor)
+    n1,n2 = image.shape
+    upimage = np.zeros((n1*factor, n2*factor))
+    x,y = np.where(upimage==0)
+    upimage[x,y] = image[(x/factor),(y/factor)]/factor**2
+    return upimage
