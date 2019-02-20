@@ -252,7 +252,7 @@ def wave_transform(img, lvl, Filter = 'Bspline', newwave = 1, convol2d = 0):
     if np.size(sh) ==3:
         mn = np.min(sh)
         wave = np.zeros([lvl+1,sh[1], sh[1],mn])
-        for h in np.linspace(0,mn-1, mn):
+        for h in range(mn):
             if mn == sh[0]:
                 wave[:,:,:,h] = wave_transform(img[h,:,:],lvl+1, Filter = Filter)
             else:
@@ -269,16 +269,16 @@ def wave_transform(img, lvl, Filter = 'Bspline', newwave = 1, convol2d = 0):
     n = np.size(h)
     h = np.array(h)
     
-    lvl = np.min([lvl,np.int(np.log2(n2))])
+    lvl = np.min( (lvl, int(np.log2(n2))) )
 
     c = img
     ## wavelet set of coefficients.
-    wave = np.zeros([lvl+1,n1,n2])
+    wave = np.zeros((lvl+1, n1, n2))
 
-    for i in np.linspace(0, lvl-1, lvl, dtype=int):
+    for i in range(lvl):
         newh = np.zeros((1, n+(n-1)*(2**i-1)))
+        newh[0, np.linspace(0,np.size(newh)-1, len(h), dtype=int)] = h
 
-        newh[0,np.int_(np.linspace(0,np.size(newh)-1,len(h)))] = h
         H = np.dot(newh.T,newh)
 
         ######Calculates c(j+1)
@@ -327,10 +327,10 @@ def iuwt(wave, convol2d =0):
     cJ = np.copy(wave[lvl-1,:,:])
     
 
-    for i in np.linspace(1,lvl-1,lvl-1, dtype=int):
+    for i in range(1, lvl):
         
         newh = np.zeros((1,n+(n-1)*(2**(lvl-1-i)-1)))
-        newh[0,np.int_(np.linspace(0,np.size(newh)-1,len(h)))] = h
+        newh[0, np.linspace(0,np.size(newh)-1,len(h), dtype=int)] = h
         H = np.dot(newh.T,newh)
 
         ###### Line convolution

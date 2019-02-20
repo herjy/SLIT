@@ -194,7 +194,7 @@ def source_to_image(Source, nt1,nt2, theta, ones = 1):
     # Source: Image of the source in the source plane
     # n1,n2: size in pixels of the postage stamp in image plane
     # F: the coordinates of the lens mapping
-    F = (theta)
+    F = theta
     nb1,nb2 = np.shape(Source)
 
     if ones == 1:
@@ -214,7 +214,7 @@ def source_to_image(Source, nt1,nt2, theta, ones = 1):
             Image[np.array(pos[0][:]),
                   np.array(pos[1][:])] += Source[xb[k],yb[k]]#fullSource
 
-            k=k+1
+        k=k+1
 
     return Image/onelens
 

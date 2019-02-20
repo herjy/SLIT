@@ -3,10 +3,11 @@ import numpy as np
 import matplotlib.pyplot as plt 
 import astropy.io.fits as pf
 import matplotlib.cm as cm
+import warnings
+import multiprocess as mtp
 from numpy import linalg as LA
 from scipy import signal as scp
 import scipy.ndimage.filters as med
-import warnings
 
 from SLIT import Lens
 from SLIT import tools
@@ -1195,8 +1196,6 @@ def simulate_noise(n1,n2, sigma, size, I_op, transform, lvl, Npar = np.int(mtp.c
     ##OUTPUTS:
     ##  -S: the source light profile.
     ##  -FS: the lensed version of the estimated source light profile
-    
-    import multiprocess as mtp
     from pathos.multiprocessing import ProcessingPool as Pool
 
     n = 500

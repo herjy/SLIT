@@ -42,8 +42,7 @@ def gaussian(n1,n2,x0,y0,A,e1,e2,alpha):
     ii = np.array(xc)
     jj = np.array(yc)
     #print(np.shape(i), np.shape(xx0))
-    count = np.linspace(0,n1*n2-1., n1*n2-1.)
-    count = np.int_(count) 
+    count = np.linspace(0,n1*n2-1, n1*n2-1, dtype=int)
     
     valcor = np.array([ii,jj]) - np.array([xx0,yy0])
     valcor = np.array(valcor)
@@ -96,8 +95,7 @@ def moffat(n1,n2,x0,y0,A,e1,e2,alpha,beta):
     i = np.array(xc)
     j = np.array(yc)
     #print(np.shape(i), np.shape(xx0))
-    count = np.linspace(0,n1*n2-1, n1*n2-1)
-    count = np.int_(count) 
+    count = np.linspace(0,n1*n2-1, n1*n2-1, dtype=int)
     
     valcor = np.array([i,j]) - np.array([xx0,yy0])
     valcor = np.array(valcor)
