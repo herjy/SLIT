@@ -11,7 +11,7 @@ from numpy import linalg as LA
 import multiprocess as mtp
 #from pathos.multiprocessing import ProcessingPool as Pool
 from SLIT import Lens
-import SLIT.mk_SLIT_plot as SLITplt
+# import SLIT.mk_SLIT_plot as SLITplt
 import warnings
 from SLIT import tools
 warnings.simplefilter("ignore")
@@ -275,7 +275,8 @@ def SLIT(Y, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels = [0], sch
 
 
 def SLIT_MCA(Y, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 0, lvls = 0, noise = 'gaussian', scheme = 'FISTA', decrease = 0,
-             tau =0, levels = [0], WS = 1, WG = 1, mask = [0,0], Sinit = 0, Ginit=0, Kills = 0, Killg = 0, verbosity = 0, nweight = 5):
+             tau =0, levels = [0], WS = 1, WG = 1, mask = [0,0], Sinit = 0, Ginit=0, Kills = 0, Killg = 0, verbosity = 0, nweight = 5,
+             original_fista=False):
     ##DESCRIPTION:
     ##    Function that estimates the source and lens light profiles from an image of a
     ##          strong lens system
@@ -310,6 +311,8 @@ def SLIT_MCA(Y, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 0, lvls = 
     ##
     ##EXAMPLE:
     ##  S,FS = SLIT(img, Fkappa, 5, 100, 1, PSF,  PSFconj)
+
+    niter = max([6, niter])
 
     #Shape of the image
     n1,n2 = np.shape(Y)
@@ -446,7 +449,7 @@ def SLIT_MCA(Y, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 0, lvls = 
     niter0 = np.copy(niter)
     riter0 = np.copy(riter)
     #Reweighting loop
-    k = tools.MOM(transform(Y), transform(Y), levelg, levelg)
+    k = tools.MOM(transform(Y), transform(Y), levels, levelg)
     k0 = np.copy(k)
     karg = np.log(kmax / k0) / (niter - 10.)
 
@@ -459,8 +462,11 @@ def SLIT_MCA(Y, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 0, lvls = 
         S = np.random.randn(ns1, ns2) * sigma0
     else:
         S = Sinit
-    FS = FG_op(G)
-    FG = FS_op(S)
+
+    # FS = FG_op(G)  # original code
+    # FG = FS_op(S)  # original code
+    FS = 0
+    FG = 0
     Gnew = np.copy(G)
     Snew = np.copy(S)
     alphaSnew = transform(S)
@@ -482,7 +488,7 @@ def SLIT_MCA(Y, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 0, lvls = 
         tg = 1
         ts = 1
         if decrease == 1:
-            k = tools.MOM(transform(Y), transform(Y), levelg, levelg)
+            k = tools.MOM(transform(Y), transform(Y), levels, levelg)
         else:
             k = kmax
         k0 = np.copy(k)
@@ -502,7 +508,7 @@ def SLIT_MCA(Y, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 0, lvls = 
 
 
             k = k-step#k0 * np.exp(i * karg)#
-            kMOM = tools.MOM(transform(DS), transform(DG), levelg, levelg)
+            kMOM = tools.MOM(transform(DS), transform(DG), levels, levelg)
 
             if kMOM<k:
                 k = np.copy(kMOM)
@@ -525,7 +531,7 @@ def SLIT_MCA(Y, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 0, lvls = 
                 if scheme == 'FISTA':
                     alphaS = np.copy(alphaSnew)
                     alphaSnew, csiS, ts = tools.FISTA(DS, alphaS, FS_op, IS_op, muS, ts, csiS, regS1, transform,
-                                                      inverse, pos=0)
+                                                      inverse, pos=0, original_fista=original_fista)
 
                 if scheme == 'Vu':
                     alphaS = np.copy(alphaSnew)
@@ -556,7 +562,7 @@ def SLIT_MCA(Y, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 0, lvls = 
             for j2 in range(1):
                 if scheme == 'FISTA':
                     alphaG = np.copy(alphaGnew)
-                    alphaGnew, csiG, tg = tools.FISTA(DG, alphaG, FG_op, IG_op, muG, tg, csiG, regG1, transform, inverse, pos = 0)
+                    alphaGnew, csiG, tg = tools.FISTA(DG, alphaG, FG_op, IG_op, muG, tg, csiG, regG1, transform, inverse, pos = 0, original_fista=original_fista)
 
 
 
@@ -625,7 +631,7 @@ def SLIT_MCA(Y, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 0, lvls = 
         plt.subplot(212)
         plt.plot(Res2)
 
-    return Snew, FS,Gnew, FG
+    return Snew, FS,Gnew, FG, Res1, Res2
 
 
 def SLIT_MCA_HR(Y, Fkappa, kmax, niter, riter, size, PSF, lvlg=0, lvls=0, noise='gaussian', scheme='FISTA',
@@ -664,6 +670,8 @@ def SLIT_MCA_HR(Y, Fkappa, kmax, niter, riter, size, PSF, lvlg=0, lvls=0, noise=
     ##
     ##EXAMPLE:
     ##  S,FS = SLIT(img, Fkappa, 5, 100, 1, PSF,  PSFconj)
+
+    niter = max([6, niter])
 
     # Shape of the image
     n1, n2 = np.shape(Y)
@@ -847,7 +855,7 @@ def SLIT_MCA_HR(Y, Fkappa, kmax, niter, riter, size, PSF, lvlg=0, lvls=0, noise=
         alphaGnew = transform(G)
         csiG = np.copy(alphaGnew)
 
-        k = tools.MOM(transform(Y), transform(Y), levelg, levelg) / 100
+        k = tools.MOM(transform(Y), transform(Y), levels, levelg) / 100.
         k0 = np.copy(k)
         karg = np.log(kmax / k0) / (niter - 5.)
         print(k)
@@ -864,7 +872,7 @@ def SLIT_MCA_HR(Y, Fkappa, kmax, niter, riter, size, PSF, lvlg=0, lvls=0, noise=
         while i < niter:
 
             k = k0 * np.exp(i * karg)
-            kMOM = tools.MOM(transform(DS), transform(DG), levelg, levelg)
+            kMOM = tools.MOM(transform(DS), transform(DG), levels, levelg)
 
             if kMOM < k:
                 k = np.copy(kMOM)

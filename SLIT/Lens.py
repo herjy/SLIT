@@ -241,18 +241,18 @@ def image_to_source(Image, size,beta,lensed = 0, square = 0):
     N = np.size(xb)
 
     for k in range(N):
-                    pos = F[k]
-                    if np.size(np.shape(pos)) > 1:
-                        if np.sum(lensed) !=0:
-                            if square == 0:
-                                Source[xb[k],yb[k]] += np.sum(Image[np.array(pos[0][:]),
-                                                               np.array(pos[1][:])])/np.max([1,np.size(pos[0][:])])
-                            else:
-                                Source[xb[k], yb[k]] += np.sum((Image[np.array(pos[0][:]),
-                                                                np.array(pos[1][:])] / np.max([1, np.size(pos[0][:])]))**2)
-                        else:
-                            Source[xb[k],yb[k]] += np.sum(Image[np.array(pos[0][:]),
-                                                           np.array(pos[1][:])])
+        pos = F[k]
+        if np.size(np.shape(pos)) > 1:
+            if np.sum(lensed) !=0:
+                if square == 0:
+                    Source[xb[k],yb[k]] += np.sum(Image[np.array(pos[0][:]),
+                                                   np.array(pos[1][:])])/np.max([1,np.size(pos[0][:])])
+                else:
+                    Source[xb[k], yb[k]] += np.sum((Image[np.array(pos[0][:]),
+                                                    np.array(pos[1][:])] / np.max([1, np.size(pos[0][:])]))**2)
+            else:
+                Source[xb[k],yb[k]] += np.sum(Image[np.array(pos[0][:]),
+                                               np.array(pos[1][:])])
     if square == 1:
         Source = np.sqrt(Source)
     return Source
@@ -270,14 +270,14 @@ def image_to_source_bound(Image, size,beta,lensed = 0):
     xb,yb = np.where(Source == 0)
     N = np.size(xb)
     for k in range(N):
-                    pos = F[k]
-                    if np.size(np.shape(pos)) > 1:
-                        if np.sum(lensed) !=0:
-                            Source[xb[k],yb[k]] += np.sum(Image[np.array(pos[0][:]),
-                                                           np.array(pos[1][:])])/np.max([1,np.size(pos[0][:])])
-                        else:
-                            Source[xb[k],yb[k]] += np.sum(Image[np.array(pos[0][:]),
-                                                           np.array(pos[1][:])])
+        pos = F[k]
+        if np.size(np.shape(pos)) > 1:
+            if np.sum(lensed) !=0:
+                Source[xb[k],yb[k]] += np.sum(Image[np.array(pos[0][:]),
+                                               np.array(pos[1][:])])/np.max([1,np.size(pos[0][:])])
+            else:
+                Source[xb[k],yb[k]] += np.sum(Image[np.array(pos[0][:]),
+                                               np.array(pos[1][:])])
 
     return Source
 
