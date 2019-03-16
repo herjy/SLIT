@@ -51,7 +51,7 @@ def SLIT(Y, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels = [0], sch
     n1,n2 = np.shape(Y)
     PSFconj = PSF.T
     #Size of the source
-    ns1,ns2 = n1*size, n2*size
+    ns1,ns2 = int(n1*size), int(n2*size)
     #Number of starlet scales in source plane
     if lvl ==0:
         lvl = np.int(np.log2(ns2))
@@ -97,9 +97,10 @@ def SLIT(Y, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels = [0], sch
     def PSFT_apply(ii):
         return scp.fftconvolve(ii,PSFconj,mode = 'same')
     def transform(x):
-        return tools.wave_transform(x, lvl, newwave = 1)
+        coeffs, _ = tools.wave_transform(x, lvl, newwave=1)
+        return coeffs
     def inverse(x):
-        return tools.iuwt(x)
+        return tools.iuwt(x, newwave=1)
 
     #Forward operator
     def F_op(X):
@@ -324,8 +325,8 @@ def SLIT_MCA(Y, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 0, lvls = 
     #Shape of the image
     n1,n2 = np.shape(Y)
     #Initialisation of the source
-    ns1= n1*size
-    ns2 = n2*size
+    ns1 = int(n1*size)
+    ns2 = int(n2*size)
     PSFconj = PSF.T
     #Number of starlet scales in source and image planes
     if lvlg ==0:
@@ -375,9 +376,10 @@ def SLIT_MCA(Y, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 0, lvls = 
     def PSFT_apply(ii):
         return scp.fftconvolve(ii,PSFconj,mode = 'same')
     def transform(x):
-        return tools.wave_transform(x, lvlg)
+        coeffs, _ = tools.wave_transform(x, lvlg, newwave=1)
+        return coeffs
     def inverse(x):
-        return tools.iuwt(x)
+        return tools.iuwt(x, newwave=1)
 
     def FWS_op(X):
         return PSF_apply(F_apply(inverse(X)))
@@ -743,10 +745,11 @@ def SLIT_MCA_HR(Y, Fkappa, kmax, niter, riter, size, PSF, lvlg=0, lvls=0, noise=
         return scp.fftconvolve(ii, PSFconj, mode='same')
 
     def transform(x):
-        return tools.wave_transform(x, lvlg)
+        coeffs, _ = tools.wave_transform(x, lvlg, newwave=1)
+        return coeffs
 
     def inverse(x):
-        return tools.iuwt(x)
+        return tools.iuwt(x, newwave=1)
 
     def FWS_op(X):
         return Down(PSF_apply(F_apply(inverse(X))))
@@ -1039,7 +1042,7 @@ def plot_cube(cube):
 
 
 def level_source_HR(n1,n2, size, sigma,PSFT, Lens_op2, Up, lvl):
-    ns1,ns2 = n1*size, n2*size
+    ns1,ns2 = int(n1*size), int(n2*size)
     ones = np.ones((n1,n2))
     noise = Up(ones*sigma)*(size)**2
     Hnoise = np.sqrt(scp.fftconvolve(noise**2, PSFT**2, mode = 'same'))#noise*np.sqrt(np.sum(PSFT**2))##
@@ -1050,7 +1053,7 @@ def level_source_HR(n1,n2, size, sigma,PSFT, Lens_op2, Up, lvl):
     dirac = np.zeros((ns1,ns2))
     dirac[int(ns1/2),int(ns2/2)] = 1
     print(dirac.shape, ns1,ns2)
-    wave_dirac = tools.wave_transform(dirac, lvl)
+    wave_dirac, _ = tools.wave_transform(dirac, lvl)
     levels = np.zeros(wave_dirac.shape)
     for i in range(lvl):
         if np.size(noise.shape) > 2:
@@ -1066,7 +1069,7 @@ def level_source_HR(n1,n2, size, sigma,PSFT, Lens_op2, Up, lvl):
 
 
 def level_source(n1,n2,sigma,size,PSFT, Lens_op2, lensed, lvl):
-    ns1,ns2 = n1*size, n2*size
+    ns1,ns2 = int(n1*size), int(n2*size)
     ones = np.ones((n1,n2))
     lensed[lensed == 0] = 1
     noise = ones*sigma
@@ -1081,7 +1084,7 @@ def level_source(n1,n2,sigma,size,PSFT, Lens_op2, lensed, lvl):
 
     dirac[int(ns1/2),int(ns2/2)] = 1
 
-    wave_dirac = tools.wave_transform(dirac, lvl)
+    wave_dirac, _ = tools.wave_transform(dirac, lvl)
     levels = np.zeros(wave_dirac.shape)
     for i in range(lvl):
         if np.size(noise.shape) > 2:
@@ -1170,7 +1173,7 @@ def mk_bound(Fkappa, n1,n2,size):
 
 
 def mk_simu(n1,n2,lvl,size, sigma, I_op, transform, n):
-    storage = np.zeros((lvl,n1*size, n2*size, n))
+    storage = np.zeros((lvl, int(n1*size), int(n2*size), n))
     for i in range(n):
         noise = np.random.randn(n1,n2)*sigma
         noise_lens = I_op(noise)
@@ -1201,7 +1204,7 @@ def simulate_noise(n1,n2, sigma, size, I_op, transform, lvl, Npar = np.int(mtp.c
     n = 500
     if Npar>mtp.cpu_count():
         Npar = mtp.cpu_count()
-    ns1,ns2 = n1*size, n2*size
+    ns1,ns2 = int(n1*size), int(n2*size)
 #    lvl = np.int(np.log2(ns1))
     w_levels = np.zeros((lvl,ns1,ns2))
 

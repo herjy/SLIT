@@ -151,8 +151,8 @@ def F(kappa, nt1,nt2, size, extra=100, x_shear = 0, y_shear = 0, alpha_x_in = [-
     na1,na2 = np.shape(alpha_x)
     xa,ya = np.where(np.zeros((na1,na2)) == 0)
 
-    nb1=nt1*size
-    nb2=nt2*size
+    nb1 = int(nt1*size)
+    nb2 = int(nt2*size)
     xb, yb = np.where(np.zeros((nb1,nb2))==0)
 
     #Scaling of the source grid
@@ -224,10 +224,10 @@ def image_to_source(Image, size,beta,lensed = 0, square = 0):
     # nsize1,nsize2: size of the postagestamp in source plane
     # F: lens mapping matrix
 
-    F = (beta)
+    F = beta
     nt1,nt2 = np.shape(Image)
-    nb1 = (nt1*size)
-    nb2 = (nt2*size)
+    nb1 = int(nt1*size)
+    nb2 = int(nt2*size)
 
     Source = np.zeros((nb1,nb2))
     xb,yb = np.where(Source == 0)
@@ -255,10 +255,10 @@ def image_to_source_bound(Image, size,beta,lensed = 0):
     # nsize1,nsize2: size of the postagestamp in source plane
     # F: lens mapping matrix
 
-    F = (beta)
+    F = beta
     nt1,nt2 = np.shape(Image)
-    nb1 = nt1*size
-    nb2 = nt2*size
+    nb1 = int(nt1*size)
+    nb2 = int(nt2*size)
     Source = np.zeros((nb1,nb2))
     xb,yb = np.where(Source == 0)
     N = np.size(xb)
