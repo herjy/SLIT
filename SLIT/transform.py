@@ -4,6 +4,7 @@ import scipy.ndimage.filters as scf
 
 
 def uwt_pysap(img, lvl, Filter='Bspline', n_omp_threads=None):
+    import pysap
     
     lvl -= 1  # TODO !!!!!
 
@@ -37,6 +38,8 @@ def uwt_pysap(img, lvl, Filter='Bspline', n_omp_threads=None):
     return pysap2muscadet(coeffs), transform
 
 def iuwt_pysap(wave, transform, fast=True):
+    import pysap
+    
     def muscadet2pysap(a):
         a_list = []
         for i in range(a.shape[0]):

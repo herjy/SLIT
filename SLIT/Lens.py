@@ -118,7 +118,8 @@ def alpha_def(kappa, n1,n2,extra=0):
     intex = scp.fftconvolve(tabx, (kappa), mode = 'same')/np.pi
     intey = scp.fftconvolve(taby, (kappa), mode = 'same')/np.pi
 
-    return intex[int(x0-(n1)/2):int(x0+(n1)/2),int(y0-(n2)/2):int(y0+(n2)/2)], intey[int(x0-(n1)/2):int(x0+(n1)/2),int(y0-(n2)/2):int(y0+(n2)/2)]
+    return intex[int(x0-(n1)/2):int(x0+(n1)/2),int(y0-(n2)/2):int(y0+(n2)/2)], \
+           intey[int(x0-(n1)/2):int(x0+(n1)/2),int(y0-(n2)/2):int(y0+(n2)/2)]
 
 def beta(kappa,theta):
     #Computes beta

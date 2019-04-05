@@ -30,6 +30,7 @@ def wave_transform(img, lvl, Filter='Bspline', newwave=1, convol2d=0, verbose=Fa
                 print(original_warning)
             coeffs = tr.uwt_original(img, lvl, Filter='Bspline', 
                                      newwave=newwave, convol2d=convol2d)
+            pysap_transform = None
     else:
         if verbose:
             print("WARNING : PySAP not installed or not found")

@@ -459,6 +459,7 @@ def SLIT_MCA(Y, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 0, lvls = 
     niter0 = np.copy(niter)
     riter0 = np.copy(riter)
     #Reweighting loop
+    # k = tools.MOM(transform(Y), transform(Y), levelg, levelg)  # original code
     k = tools.MOM(transform(Y), transform(Y), levels, levelg)
     k0 = np.copy(k)
     karg = np.log(kmax / k0) / (niter - 10.)
@@ -498,6 +499,7 @@ def SLIT_MCA(Y, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 0, lvls = 
         tg = 1
         ts = 1
         if decrease == 1:
+            # k = tools.MOM(transform(Y), transform(Y), levelg, levelg)  # original code
             k = tools.MOM(transform(Y), transform(Y), levels, levelg)
         else:
             k = kmax
@@ -518,6 +520,7 @@ def SLIT_MCA(Y, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 0, lvls = 
 
 
             k = k-step#k0 * np.exp(i * karg)#
+            # kMOM = tools.MOM(transform(DS), transform(DG), levelg, levelg)  # original code
             kMOM = tools.MOM(transform(DS), transform(DG), levels, levelg)
 
             if kMOM<k:
