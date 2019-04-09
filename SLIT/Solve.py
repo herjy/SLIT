@@ -284,7 +284,7 @@ def SLIT(Y, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels = [0], sch
 
 def SLIT_MCA(Y, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 0, lvls = 0, noise = 'gaussian', scheme = 'FISTA', decrease = 0,
              tau =0, levels = [0], WS = 1, WG = 1, mask = [0,0], Sinit = 0, Ginit=0, Kills = 0, Killg = 0, verbosity = 0, nweight = 5,
-             original_fista=False):
+             original_fista=False, noise_levels_file='Noise_levels_MCA.fits'):
     ##DESCRIPTION:
     ##    Function that estimates the source and lens light profiles from an image of a
     ##          strong lens system
@@ -340,22 +340,29 @@ def SLIT_MCA(Y, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 0, lvls = 
     #Masking if required
     if np.sum(mask) == 0:
         mask = np.ones((n1,n2))
-    Y = Y*mask
+
+    # Y = Y*mask  # instead we put noise where pixels are masked
+
     #Noise standard deviation in image plane
     if noise == 'gaussian':
-        print('noise statistic is gaussain')
         sigma0 = tools.MAD(Y)
+        print('noise statistic is gaussian (sigma = {:.5e})'.format(sigma0))
     if noise == 'poisson':
-        print('noise statistic is poisson')
         sigma0 = tools.MAD_poisson(Y,tau)
+        print('noise statistic is poisson (sigma = {:.5e})'.format(sigma0))
     if (noise == 'G+P') or (noise == 'P+G'):
-        print('noise statistic is poisson and gaussain mixture')
         sigma0 = np.sqrt(tools.MAD_poisson(Y,tau, lvlg)**2+tools.MAD(Y)**2)
+        print('noise statistic is gaussian-poisson mixture (sigma = {:.3f})'.format(sigma0))
+
+    # replace masked pixels with gaussian noise (fix k computation)
+    masked_pixels = np.where(mask == 0)
+    gaussian_noise_map = sigma0 * np.random.randn(n1, n2)
+    Y[masked_pixels] = gaussian_noise_map[masked_pixels]
+
 
     #Mapping of an all-at-one image
     lensed = lens_one(Fkappa, n1,n2, size)
 
-    
     supp = np.zeros((lvls,lensed.shape[0],lensed.shape[1]))
     supp[:,lensed/lensed ==1] =1
 
@@ -423,14 +430,14 @@ def SLIT_MCA(Y, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 0, lvls = 
     # Noise levels in image plane  in starlet space
     levelg = tools.level(n1, n2, lvlg) * sigma0
     #Noise simulations to estimate noise levels in source plane
-    if np.sum(levels)==0:
+    if not np.any(levels):
         print('Calculating noise levels')
         levels = level_source(n1, n2, sigma0, size, PSFconj, Lens_op2, lensed, lvls)
         #levels[:,lensed ==0] = np.max(levels*10)
         #Saves levels
         hdus = pf.PrimaryHDU(levels)
         lists = pf.HDUList([hdus])
-        lists.writeto('Noise_levels_MCA.fits', clobber=True)
+        lists.writeto(noise_levels_file, clobber=True)
 
     #Computationt of spectral norms
     FS_norm = spectralNorm(ns1,ns2,20,1e-10,FS_op,IS_op)
@@ -458,6 +465,7 @@ def SLIT_MCA(Y, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 0, lvls = 
 
     niter0 = np.copy(niter)
     riter0 = np.copy(riter)
+
     #Reweighting loop
     # k = tools.MOM(transform(Y), transform(Y), levelg, levelg)  # original code
     k = tools.MOM(transform(Y), transform(Y), levels, levelg)

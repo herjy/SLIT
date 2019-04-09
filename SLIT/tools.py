@@ -68,6 +68,7 @@ def MOM(S, G, levelS, levelG):
     levelG = levelG[:-1,:,:]
 
     sel = ((levelS!=0))
+
     Smax = np.max(np.abs(S[sel])/levelS[sel])
     Gmax = np.max(np.abs(G[levelG!=0])/levelG[levelG!=0])
 
