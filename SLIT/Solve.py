@@ -282,7 +282,7 @@ def SLIT(Y, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels = [0], sch
 #############################SLIT MCA for blended lenses############################
 
 
-def SLIT_MCA(Y, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 0, lvls = 0, noise = 'gaussian', scheme = 'FISTA', decrease = 0,
+def SLIT_MCA(input_image, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 0, lvls = 0, noise = 'gaussian', scheme = 'FISTA', decrease = 0,
              tau =0, levels = [0], WS = 1, WG = 1, mask = [0,0], Sinit = 0, Ginit=0, Kills = 0, Killg = 0, verbosity = 0, nweight = 5,
              original_fista=False, noise_levels_file='Noise_levels_MCA.fits'):
     ##DESCRIPTION:
@@ -323,40 +323,49 @@ def SLIT_MCA(Y, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 0, lvls = 
     niter = max([6, niter])
 
     #Shape of the image
-    n1,n2 = np.shape(Y)
+    n1, n2 = np.shape(input_image)
     #Initialisation of the source
     ns1 = int(n1*size)
     ns2 = int(n2*size)
     PSFconj = PSF.T
     #Number of starlet scales in source and image planes
-    if lvlg ==0:
-        lvlg = np.int(np.log2(n2))
+    if lvlg == 0:
+        lvlg = int(np.log2(n2))
     else:
-        lvlg = np.min([lvlg,np.int(np.log2(n2))])
-    lvls = lvlg
-    if lvls >np.int(np.log2(ns2)):
-        print('Error, too many wavelet levels for the source. Choose a smaller value for lvl')
-        exit
+        lvlg = np.min([lvlg, int(np.log2(n2))])
+
+    if lvls == 0:
+        lvls = int(np.log2(ns2))
+    else:
+        lvls = np.min([lvls, int(np.log2(ns2))])
+
+    # lvls = lvlg
+    # if lvls > int(np.log2(ns2)):
+    #     print('Error, too many wavelet levels for the source. Choose a smaller value for lvl')
+    #     exit
+
     #Masking if required
     if np.sum(mask) == 0:
         mask = np.ones((n1,n2))
 
-    # Y = Y*mask  # instead we put noise where pixels are masked
+    # input_image = input_image*mask  # instead we put noise where pixels are masked
 
     #Noise standard deviation in image plane
     if noise == 'gaussian':
-        sigma0 = tools.MAD(Y)
+        sigma0 = tools.MAD(input_image)
         print('noise statistic is gaussian (sigma = {:.5e})'.format(sigma0))
     if noise == 'poisson':
-        sigma0 = tools.MAD_poisson(Y,tau)
+        sigma0 = tools.MAD_poisson(input_image, tau)
         print('noise statistic is poisson (sigma = {:.5e})'.format(sigma0))
     if (noise == 'G+P') or (noise == 'P+G'):
-        sigma0 = np.sqrt(tools.MAD_poisson(Y,tau, lvlg)**2+tools.MAD(Y)**2)
+        sigma0 = np.sqrt(tools.MAD_poisson(input_image, tau, lvlg)**2 + tools.MAD(input_image)**2)
         print('noise statistic is gaussian-poisson mixture (sigma = {:.3f})'.format(sigma0))
 
     # replace masked pixels with gaussian noise (fix k computation)
     masked_pixels = np.where(mask == 0)
     gaussian_noise_map = sigma0 * np.random.randn(n1, n2)
+
+    Y = np.copy(input_image)
     Y[masked_pixels] = gaussian_noise_map[masked_pixels]
 
 

@@ -135,7 +135,7 @@ def F(kappa, nt1,nt2, size, extra=100, x_shear = 0, y_shear = 0, alpha_x_in = [-
 	# Theta positions for each pixel in beta
 
 
-    if np.sum(alpha_x_in) != [-99]:
+    if np.sum(alpha_x_in) != -99:
         alpha_x = alpha_x_in
         alpha_y = alpha_y_in
     else:
