@@ -8,16 +8,20 @@ import multiprocess as mtp
 from numpy import linalg as LA
 from scipy import signal as scp
 import scipy.ndimage.filters as med
+import time
 
 from SLIT import Lens
 from SLIT import tools
+
 
 warnings.simplefilter("ignore")
 
 ##SLIT: Sparse Lens Inversion Technique
 
-def SLIT(Y, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels = [0], scheme = 'FB',
-         mask = [0], lvl = 0, weightS = 1, noise = 'gaussian', tau = 0, verbosity = 0, nweights = 1):
+def SLIT(input_image, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels = [0], scheme = 'FB',
+         mask = [0], lvl = 0, weightS = 1, noise = 'gaussian', tau = 0, verbosity = 0, nweights = 1,
+         noise_levels_file='Noise_levels.fits', original_fista=False, 
+         save_steps_dir=None):
     ##DESCRIPTION:
     ##    Function that estimates the source light profile from an image of a lensed source given the mass density profile.
     ##
@@ -48,17 +52,17 @@ def SLIT(Y, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels = [0], sch
     ##EXAMPLE:
     ##  S,FS = SLIT(img, Fkappa, 5, 100, 1, PSF,  PSFconj)
 
-    n1,n2 = np.shape(Y)
+    n1,n2 = np.shape(input_image)
     PSFconj = PSF.T
     #Size of the source
     ns1,ns2 = int(n1*size), int(n2*size)
     #Number of starlet scales in source plane
-    if lvl ==0:
-        lvl = np.int(np.log2(ns2))
+    if lvl == 0:
+        lvl = int(np.log2(ns2))
     else:
         lvl = np.min([lvl,np.int(np.log2(ns2))])
 
-    lvlg = np.int(np.log2(n2))
+    lvlg = int(np.log2(n2))
     #Masking if required
     if np.sum(mask) == 0:
         mask = np.ones((n1,n2))
@@ -66,21 +70,30 @@ def SLIT(Y, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels = [0], sch
 
     #Noise in image plane
     if noise == 'gaussian':
-        print('noise statistic is gaussain')
-        sigma0 = tools.MAD(Y)
+        print('noise statistic is gaussian')
+        sigma0 = tools.MAD(input_image)
         print('sigma: ', sigma0)
     if noise == 'poisson':
         print('noise statistic is poisson')
-        sigma0 = tools.MAD_poisson(Y,tau)
+        sigma0 = tools.MAD_poisson(input_image,tau)
     if (noise == 'G+P') or (noise == 'P+G'):
-        print('noise statistic is poisson and gaussain mixture')
-        sigma0 = np.sqrt(tools.MAD_poisson(Y,tau, lvlg)**2+tools.MAD(Y)**2)
-
-
+        print('noise statistic is poisson and gaussian mixture')
+        sigma0 = np.sqrt(tools.MAD_poisson(input_image,tau, lvlg)**2+tools.MAD(input_image)**2)
         plt.imshow(sigma0); plt.colorbar(); plt.show()
 
-    #Mapping of an all-at-one image to source plane
+    # replace masked pixels with gaussian noise (fix k computation)
+    masked_pixels = np.where(mask == 0)
+    gaussian_noise_map = sigma0 * np.random.randn(n1, n2)
+    Y = np.copy(input_image)
+    Y[masked_pixels] = gaussian_noise_map[masked_pixels]
+
+    plt.figure()
+    plt.imshow(Y, origin='lower')
+    plt.title("input")
+
+    #Mapping of an all-at-one image to source plane (does not take a lot of time)
     lensed = lens_one(Fkappa, n1,n2, size)
+
     #estimation of the frame of the image in source plane
     supp = np.zeros((lvl,lensed.shape[0],lensed.shape[1]))
     supp[:, lensed/lensed==1] = 1
@@ -130,49 +143,51 @@ def SLIT(Y, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels = [0], sch
         return X*supp
     def reg_filter(X):
         return tools.mr_filter(X,levels,ks,10,transform, inverse, I_op(sigma0*np.ones((n1,n2))), lvl = lvl, supp = supp)
-    #Noise simulations to estimate noise levels in source plane
-    if np.sum(levels)==0:
+    
+    ## Noise simulations to estimate noise levels in source plane
+    if not np.any(levels):
         print('Calculating noise levels')
         #levels = simulate_noise(n1,n2, sigma0, size, I_op, transform,  lvl)
-        levels = level_source(n1,n2,sigma0,size,PSFconj, Lens_op2, lensed, lvl)
+        levels = level_source(n1, n2, sigma0, size, PSFconj, Lens_op2, lensed, lvl)
         #Saves levels
         hdus = pf.PrimaryHDU(levels)
         lists = pf.HDUList([hdus])
-        lists.writeto('Noise_levels.fits', clobber=True)
+        lists.writeto(noise_levels_file, clobber=True)
 
     def mk_levels(sigma):
         return level_source(n1,n2,sigma0,size,PSFconj, Lens_op2, lensed, lvl)
-##Compute spectral norms
 
-    opwave_norm = spectralNorm(n1,n2,20,1e-10,IW_op,FW_op)
-    op_norm = spectralNorm(ns1, ns2, 20, 1e-10, F_op, I_op)
-    wave_norm = spectralNorm(ns1,ns2,20,1e-10,transform,inverse)
+    ## Compute spectral norms (takes A LOT of time)
     if scheme == 'Vu':
+        op_norm = spectralNorm(ns1, ns2, 20, 1e-10, F_op, I_op)
+        wave_norm = spectralNorm(ns1,ns2,20,1e-10,transform,inverse)
         mu = 1.
         tau = 1./(mu*wave_norm**2+0.5*op_norm)
         if verbosity == 1:
             print(mu,tau)
     else:
+        opwave_norm = spectralNorm(n1,n2,20,1e-10,IW_op,FW_op)
         mu = .5/(opwave_norm)
         if verbosity == 1:
             print(mu)
 
-    #Initialisation
 
+    ## Initialisation
     niter0 = np.copy(niter)
 
-    Res1= []
+    Res1 = []
+    steps_to_save = []
 
     for jr in range(nweights):
         if jr!= nweights-1:
-            niter = niter0/2
+            niter = niter0 #/2
         else:
             niter = niter0
 
         trans = (transform(I_op(Y))/levels)*supp
 
         #trans[:,lensed==0] = 0
-        trans[levels==0] =0
+        trans[levels==0] = 0
         ks0 = np.max(trans)*0.9
         print(ks0)
         ks=np.copy(ks0)
@@ -181,7 +196,6 @@ def SLIT(Y, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels = [0], sch
         i = 0
 
         ts = 1
-        csi = 0
         M = [0]
         Res1= []
         Res2 = []
@@ -194,6 +208,7 @@ def SLIT(Y, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels = [0], sch
         alpha =transform(S)
         alphaY = transform(I_op(Y))
         alphanew = np.copy(alpha)
+        csi = np.copy(alphanew)
         points = 0
 
         while i < niter:
@@ -204,39 +219,36 @@ def SLIT(Y, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels = [0], sch
                 ks = np.max([ks, kmax])
                 S = np.copy(Snew)
                 Snew = tools.Forward_Backward(Y, S, F_op, I_op, transform, inverse, mu, reg1, pos = 1)
-                S[S<0] = 0
-                FS = F_op(Snew)*mask
+                # S[S<0] = 0  # ORIGINAL CODE
+                Snew[Snew<0] = 0
+                
                 if (noise == 'G+P') or (noise == 'P+G') and (i<10):
+                    FS = F_op(Snew)*mask
                     sigma = (tools.MAD(Y)+np.sqrt(FS/tau))
                     levels = mk_levels(sigma)
 
             elif scheme == 'FISTA':
                 print('FISTA ', i)
 
-                #S = np.copy(Snew)
+                # S = np.copy(Snew)
                 alphanew = np.copy(alpha)
-                alpha, csi, ts = tools.FISTA(Y, alphanew, F_op, I_op, mu, ts, csi, reg1, transform, inverse, mask = mask)
-                #Snew = inverse(alpha)
+                alpha, csi, ts = tools.FISTA(Y, alphanew, F_op, I_op, mu, ts, csi, reg1, transform, inverse, mask=mask, original_fista=original_fista)
+                Snew = inverse(alpha)
                 #FS = F_op(Snew)
 
             elif scheme == 'Vu':
                 print('Vu ', i)
                 S = np.copy(Snew)
-                Snew,alpha = tools.Vu_Primal_dual(Y, S, alpha, mu, tau, F_op, I_op, transform, inverse, reg1, reg_plus)
+                Snew, alpha = tools.Vu_Primal_dual(Y, S, alpha, mu, tau, F_op, I_op, transform, inverse, reg1, reg_plus)
 
-               # FS = F_op(Snew)
+            FS = F_op(Snew)
+            chi2 = tools.Res(Y, FS, sigma0)
+            SDR  = tools.SDR(alpha, alphanew)
 
-        #        plt.imshow(S)
-        #        plt.show()
-
-            
-
-            SDR = tools.SDR(alpha, alphanew)
-
-         #   Res = tools.Res(Y,FS,sigma0)
             #Convergence condition
-          #  Res1.append(Res)
+            Res1.append(chi2)
             Res2.append(SDR)
+
           #  ks = ks-steps
             if i>5:
                 add = Criteria(i, SDR, Res2)
@@ -253,11 +265,13 @@ def SLIT(Y, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels = [0], sch
             i = i+1
             if i == niter:
                 print('BREAK: Maximum number of iterations reached.')
+
+            steps_to_save.append([Snew, FS, Y-FS])
         
 #        alpha = transform(S)
 
         weightS = 2./(1.+np.exp(-10.*(levels*kmax-alpha)))
-#    plt.show()
+
     Snew = inverse(alpha)
     FS = F_op(Snew)
 
@@ -265,18 +279,21 @@ def SLIT(Y, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels = [0], sch
     if np.size(np.shape(sigma0))>2:
         sigma0[sigma0==0]=np.mean(sigma0)
     if verbosity == 1:
+        plt.figure()
         plt.imshow((Y-FS)/(sigma0)); plt.colorbar(); plt.show()
-
-    #    plt.plot(Res1, 'b'); plt.show()
-
         plt.plot(Res2, 'r');
         plt.show()
+
         if noise == 'poisson':
             plt.subplot(211)
             plt.title('S')
             plt.imshow(S); plt.colorbar()
             plt.show()
-    return Snew, FS
+
+    if save_steps_dir is not None:
+        tools.save_steps(save_steps_dir, steps_to_save, Y, suffix=scheme)
+
+    return Snew, FS, Res1, Res2, sigma0
 
 
 #############################SLIT MCA for blended lenses############################
@@ -368,6 +385,9 @@ def SLIT_MCA(input_image, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 
     Y = np.copy(input_image)
     Y[masked_pixels] = gaussian_noise_map[masked_pixels]
 
+    plt.figure()
+    plt.imshow(Y, origin='lower')
+    plt.title("input")
 
     #Mapping of an all-at-one image
     lensed = lens_one(Fkappa, n1,n2, size)
@@ -438,6 +458,7 @@ def SLIT_MCA(input_image, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 
 
     # Noise levels in image plane  in starlet space
     levelg = tools.level(n1, n2, lvlg) * sigma0
+    
     #Noise simulations to estimate noise levels in source plane
     if not np.any(levels):
         print('Calculating noise levels')
@@ -654,12 +675,12 @@ def SLIT_MCA(input_image, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 
 
     #Final reconstructions
     if verbosity == 2:
-        plt.show()
         plt.figure(1)
         plt.subplot(211)
         plt.plot(Res1)
         plt.subplot(212)
         plt.plot(Res2)
+        plt.show()
 
     return Snew, FS,Gnew, FG, Res1, Res2
 
@@ -724,13 +745,13 @@ def SLIT_MCA_HR(Y, Fkappa, kmax, niter, riter, size, PSF, lvlg=0, lvls=0, noise=
     Y = Y * mask
     # Noise standard deviation in image plane
     if noise == 'gaussian':
-        print('noise statistic is gaussain')
+        print('noise statistic is gaussian')
         sigma0 = tools.MAD(Y)
     if noise == 'poisson':
         print('noise statistic is poisson')
         sigma0 = tools.MAD_poisson(Y, tau)
     if (noise == 'G+P') or (noise == 'P+G'):
-        print('noise statistic is poisson and gaussain mixture')
+        print('noise statistic is poisson and gaussian mixture')
         sigma0 = np.sqrt(tools.MAD_poisson(Y, tau, lvlg) ** 2 + tools.MAD(Y) ** 2)
 
     # Mapping of an all-at-one image
@@ -1120,11 +1141,10 @@ def level_source(n1,n2,sigma,size,PSFT, Lens_op2, lensed, lvl):
 
 def spectralNorm(n1,n2,Niter,tol,f,finv):
     ##DESCRIPTION:
-    ##    Function that estimates the source light profile from an image of a lensed source given the mass density profile.
+    ##    Function that computes the spectral norm of an operator f
     ##
     ##INPUTS:
-    ##    -nx,ny: shape of the input
-    ##    -nz: number of decomposition scales (if the operator tis a multiscale decomposition for instance)
+    ##    -n1,n2: shape of the input
     ##    -Niter: number of iterations
     ##    -tol: tolerance error as a stopping criteria
     ##    -f: operator

@@ -1,8 +1,10 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 import astropy.io.fits as pf
 import scipy.signal as scs
 import scipy.ndimage.filters as scf
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from SLIT import transform as tr
 
@@ -178,7 +180,7 @@ def FISTA(Y, alphaX, F_op, I_op, mu, ts, csi, reg, transform, inverse, pos = 1, 
     if not original_fista: 
         S = inverse(alphaX)
     else:
-        S = inverse(csi)  # test : back to original FISTA
+        S = inverse(csi)  # this is the original FISTA behaviour
 
     R = mu*I_op(Y-F_op(S)*mask)
     alpha = transform(R)+csi
@@ -345,4 +347,86 @@ def Upsample(image, factor):
     x,y = np.where(upimage==0)
     upimage[x,y] = image[(x/factor),(y/factor)]/factor**2
     return upimage
+
+
+def nice_colorbar(mappable, position='right', pad=0.1, size='5%', **kwargs):
+    kwargs.update({'position': position, 'pad': pad, 'size': size})
+    ax = mappable.axes
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes(**kwargs)
+    return plt.colorbar(mappable, cax=cax)
+
+def save_steps(save_steps_dir, steps_to_save, input_image, suffix=""):
+    if not os.path.exists(save_steps_dir):
+        os.mkdir(save_steps_dir)
+
+    # get vmax for color map levels
+    steps_array = np.array(steps_to_save)
+    vmin_src = np.min(steps_array[:, 0, :, :])
+    vmax_src = np.max(steps_array[:, 0, :, :])
+    vmin_img = np.min(steps_array[:, 1, :, :])
+    vmax_img = np.max(steps_array[:, 1, :, :])
+    vmax_res = np.max(np.abs(steps_array[:, 2, :, :]))
+
+    # save animated plot for each step
+
+    fig, axes = plt.subplots(1, 4, figsize=(24, 5))
+
+    step_str = ", step 0"
+    S0, FS0, res0 = steps_to_save[0]
+
+    # fig, axes = plt.subplots(1, 4, figsize=(24, 5))
+    ax = axes[0]
+    ax.set_title("$Y$")
+    im = ax.imshow(input_image, origin='lower', cmap='gist_stern')
+    nice_colorbar(im)
+    ax = axes[1]
+    ax.set_title("$FS$" + step_str)
+    im = ax.imshow(FS0, origin='lower', cmap='gist_stern',
+                   vmin=vmin_img, vmax=vmax_img)
+    nice_colorbar(im)
+    ax = axes[2]
+    ax.set_title("$S$" + step_str)
+    im = ax.imshow(S0, origin='lower', cmap='gist_stern',
+                   vmin=vmin_src, vmax=vmax_src)
+    nice_colorbar(im)
+    ax = axes[3]
+    ax.set_title("$Y - FS$" + step_str)
+    im = ax.imshow(input_image-FS0, origin='lower', cmap='bwr_r', 
+                   vmin=-vmax_res, vmax=vmax_res)
+    nice_colorbar(im)
+
+    # for j, (Snew_j, FS_j) in enumerate(steps_to_save):
+    def one_step(j):
+        step_str = ", step {}".format(j)
+        S, FS, res = steps_to_save[j]
+
+        ax = axes[1]
+        ax.set_title("$FS$" + step_str)
+        ax.imshow(FS, origin='lower', cmap='gist_stern',
+                       vmin=vmin_img, vmax=vmax_img)
+        # nice_colorbar(im)
+        ax = axes[2]
+        ax.set_title("$S$" + step_str)
+        ax.imshow(S, origin='lower', cmap='gist_stern',
+                       vmin=vmin_src, vmax=vmax_src)
+        # nice_colorbar(im)
+        ax = axes[3]
+        ax.set_title("$Y - FS$" + step_str)
+        ax.imshow(res, origin='lower', cmap='bwr_r',
+                  vmin=-vmax_res, vmax=vmax_res)
+        # nice_colorbar(im)
+
+        # fig_name = "SLIT_step{}.png".format(j)
+        # fig.savefig(os.path.join(save_steps_dir, fig_name), dpi=100)
+        # plt.close()
+
+    from matplotlib.animation import FuncAnimation
+
+    anim = FuncAnimation(fig, one_step, interval=500, frames=len(steps_to_save))
+    
+    video_path = os.path.join(save_steps_dir, "SLIT_all_steps_{}.mp4".format(suffix))
+    anim.save(video_path)
+
+    print("Step-by-step timelapse saved to {}".format(video_path))
 

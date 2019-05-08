@@ -89,37 +89,35 @@ def Jacobian_det(kappa, n1,n2):
 
     return det
 
-def alpha_def(kappa, n1,n2,extra=0):
+def alpha_def(kappa, n1, n2):
 	#Computes the deflection angle of a single photon at coordinates theta in the source plane and a lens
 	#mass distribution kappa
 
-    nk1,nk2 = np.shape(kappa)
+    nk1, nk2 = np.shape(kappa)
+
     #Coordonnees de la grille de l'espace image
-    [x,y] = np.where(np.zeros([nk1,nk2])==0)
+    x, y = np.where(np.zeros([nk1, nk2]) == 0)
 
     x0 = nk1/2
     y0 = nk2/2
 
-    xc = np.reshape((x)-x0,(nk1,nk2))
-    yc = np.reshape((y)-y0,(nk1,nk2))
+    xc = np.reshape(x - x0, (nk1, nk2)).astype(float)
+    yc = np.reshape(y - y0, (nk1, nk2)).astype(float)
 
-    r = (xc**2+yc**2)
-    lx,ly = np.where(r==0)
-    tabx = np.reshape(np.float_(xc)/(r),(nk1,nk2))
-    taby = np.reshape(np.float_(yc)/(r),(nk1,nk2))
-    tabx[lx,ly]=0
-    taby[lx,ly]=0
-
-    kappa = kappa.astype(float)
-    tabx = tabx.astype(float)
+    r2 = (xc**2 + yc**2)
+    lx, ly = np.where(r2 == 0)
+    tabx = np.reshape(xc / r2, (nk1, nk2))
+    taby = np.reshape(yc / r2, (nk1, nk2))
+    tabx[lx, ly] = 0
+    taby[lx, ly] = 0
 
 #   kappa[rk>(nk1)/2.] = 0
 
-    intex = scp.fftconvolve(tabx, (kappa), mode = 'same')/np.pi
-    intey = scp.fftconvolve(taby, (kappa), mode = 'same')/np.pi
+    intex = scp.fftconvolve(tabx, kappa, mode='same') / np.pi
+    intey = scp.fftconvolve(taby, kappa, mode='same') / np.pi
 
-    return intex[int(x0-(n1)/2):int(x0+(n1)/2),int(y0-(n2)/2):int(y0+(n2)/2)], \
-           intey[int(x0-(n1)/2):int(x0+(n1)/2),int(y0-(n2)/2):int(y0+(n2)/2)]
+    return intex[int(x0-n1/2):int(x0+n1/2), int(y0-n2/2):int(y0+n2/2)], \
+           intey[int(x0-n1/2):int(x0+n1/2), int(y0-n2/2):int(y0+n2/2)]
 
 def beta(kappa,theta):
     #Computes beta
@@ -131,22 +129,18 @@ def theta(alpha, beta):
     theta = beta+alpha
     return beta
 
-def F(kappa, nt1,nt2, size, extra=100, x_shear = 0, y_shear = 0, alpha_x_in = [-99], alpha_y_in = [-99]):
+def F(kappa, nt1, nt2, size, x_shear=0, y_shear=0, alpha_x_in=None, alpha_y_in=None):
 	# Theta positions for each pixel in beta
 
 
-    if np.sum(alpha_x_in) != -99:
+    if (alpha_x_in is not None) and (alpha_y_in is not None):
         alpha_x = alpha_x_in
         alpha_y = alpha_y_in
     else:
+        alpha_x, alpha_y = alpha_def(kappa, nt1, nt2)
 
-        nk1,nk2 = np.shape(kappa)
-
-        alpha_x,alpha_y = alpha_def(kappa,nt1,nt2,extra = extra)
-
-
-    alpha_x = alpha_x+x_shear
-    alpha_y = alpha_y+y_shear
+    alpha_x = alpha_x + x_shear
+    alpha_y = alpha_y + y_shear
 
 
     na1,na2 = np.shape(alpha_x)
@@ -237,16 +231,18 @@ def image_to_source(Image, size,beta,lensed = 0, square = 0):
     for k in range(N):
         pos = F[k]
         if np.size(np.shape(pos)) > 1:
-            if np.sum(lensed) !=0:
-                if square == 0:
-                    Source[xb[k],yb[k]] += np.sum(Image[np.array(pos[0][:]),
-                                                   np.array(pos[1][:])])/np.max([1,np.size(pos[0][:])])
+
+            light = Image[np.array(pos[0][:]), np.array(pos[1][:])]
+
+            if np.sum(lensed) != 0:
+                light /= np.max([1, np.size(pos[0][:])])
+                if square == 1:
+                    Source[xb[k], yb[k]] += np.sum(light**2)
                 else:
-                    Source[xb[k], yb[k]] += np.sum((Image[np.array(pos[0][:]),
-                                                    np.array(pos[1][:])] / np.max([1, np.size(pos[0][:])]))**2)
+                    Source[xb[k], yb[k]] += np.sum(light)
             else:
-                Source[xb[k],yb[k]] += np.sum(Image[np.array(pos[0][:]),
-                                               np.array(pos[1][:])])
+                Source[xb[k],yb[k]] += np.sum(light)
+
     if square == 1:
         Source = np.sqrt(Source)
     return Source
