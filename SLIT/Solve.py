@@ -21,7 +21,7 @@ warnings.simplefilter("ignore")
 def SLIT(input_image, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels = [0], scheme = 'FB',
          mask = [0], lvl = 0, weightS = 1, noise = 'gaussian', tau = 0, verbosity = 0, nweights = 1,
          noise_levels_file='Noise_levels.fits', original_fista=False, 
-         save_steps_dir=None):
+         save_steps_dir=None, show_plots=False):
     ##DESCRIPTION:
     ##    Function that estimates the source light profile from an image of a lensed source given the mass density profile.
     ##
@@ -79,7 +79,7 @@ def SLIT(input_image, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels 
     if (noise == 'G+P') or (noise == 'P+G'):
         print('noise statistic is poisson and gaussian mixture')
         sigma0 = np.sqrt(tools.MAD_poisson(input_image,tau, lvlg)**2+tools.MAD(input_image)**2)
-        plt.imshow(sigma0); plt.colorbar(); plt.show()
+        plt.imshow(sigma0, origin='lower'); plt.colorbar(); plt.show()
 
     # replace masked pixels with gaussian noise (fix k computation)
     masked_pixels = np.where(mask == 0)
@@ -87,9 +87,10 @@ def SLIT(input_image, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels 
     Y = np.copy(input_image)
     Y[masked_pixels] = gaussian_noise_map[masked_pixels]
 
-    plt.figure()
-    plt.imshow(Y, origin='lower')
-    plt.title("input")
+    if show_plots:
+        plt.figure()
+        plt.imshow(Y, origin='lower')
+        plt.title("input")
 
     #Mapping of an all-at-one image to source plane (does not take a lot of time)
     lensed = lens_one(Fkappa, n1,n2, size)
@@ -97,6 +98,13 @@ def SLIT(input_image, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels 
     #estimation of the frame of the image in source plane
     supp = np.zeros((lvl,lensed.shape[0],lensed.shape[1]))
     supp[:, lensed/lensed==1] = 1
+
+    #Limits of the image plane in source plane
+    bound = mk_bound(Fkappa, n1,n2, size)
+    if show_plots:
+        plt.figure()
+        plt.imshow(bound, origin='lower')
+        plt.title("bounds in source plane")
 
     #Useful functions
     def Finv_apply(I):
@@ -214,7 +222,8 @@ def SLIT(input_image, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels 
         while i < niter:
 
             if scheme == 'FB':
-                print('FB ', i)
+                if i % 10 == 0:
+                    print('FB ', i)
                 ks = ks0*np.exp(i*karg)
                 ks = np.max([ks, kmax])
                 S = np.copy(Snew)
@@ -228,7 +237,8 @@ def SLIT(input_image, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels 
                     levels = mk_levels(sigma)
 
             elif scheme == 'FISTA':
-                print('FISTA ', i)
+                if i % 10 == 0:
+                    print('FISTA ', i)
 
                 # S = np.copy(Snew)
                 alphanew = np.copy(alpha)
@@ -237,7 +247,8 @@ def SLIT(input_image, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels 
                 #FS = F_op(Snew)
 
             elif scheme == 'Vu':
-                print('Vu ', i)
+                if i % 10 == 0:
+                    print('Vu ', i)
                 S = np.copy(Snew)
                 Snew, alpha = tools.Vu_Primal_dual(Y, S, alpha, mu, tau, F_op, I_op, transform, inverse, reg1, reg_plus)
 
@@ -278,19 +289,20 @@ def SLIT(input_image, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels 
      #Final reconstruction of the source
     if np.size(np.shape(sigma0))>2:
         sigma0[sigma0==0]=np.mean(sigma0)
-    if verbosity == 1:
+    if show_plots:
         plt.figure()
-        plt.imshow((Y-FS)/(sigma0)); plt.colorbar(); plt.show()
+        plt.imshow((Y-FS)/(sigma0), origin='lower'); plt.colorbar(); plt.show()
         plt.plot(Res2, 'r');
         plt.show()
 
         if noise == 'poisson':
             plt.subplot(211)
             plt.title('S')
-            plt.imshow(S); plt.colorbar()
+            plt.imshow(S, origin='lower'); plt.colorbar()
             plt.show()
 
     if save_steps_dir is not None:
+        print("Saving animation...")
         tools.save_steps(save_steps_dir, steps_to_save, Y, suffix=scheme)
 
     return Snew, FS, Res1, Res2, sigma0
@@ -397,7 +409,9 @@ def SLIT_MCA(input_image, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 
 
     #Limits of the image plane in source plane
     bound = mk_bound(Fkappa, n1,n2, size)
-
+    plt.figure()
+    plt.imshow(bound, origin='lower')
+    plt.title("bounds in source plane")
 
 
     #Useful functions
@@ -653,16 +667,16 @@ def SLIT_MCA(input_image, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 
                 plt.figure(0)
                 plt.subplot(221)
                 plt.title('S')
-                plt.imshow(Snew)
+                plt.imshow(Snew, origin='lower')
                 plt.subplot(222)
                 plt.title('FS')
-                plt.imshow(FS)
+                plt.imshow(FS, origin='lower')
                 plt.subplot(223)
                 plt.title('FG')
-                plt.imshow(FG)
+                plt.imshow(FG, origin='lower')
                 plt.subplot(224)
                 plt.title('Residuals')
-                plt.imshow(Y-FS-FG)
+                plt.imshow(Y-FS-FG, origin='lower')
                 plt.savefig('Res'+str(i)+'.png')
             i +=1
             #Weighting
@@ -1012,16 +1026,16 @@ def SLIT_MCA_HR(Y, Fkappa, kmax, niter, riter, size, PSF, lvlg=0, lvls=0, noise=
                 plt.figure(0)
                 plt.subplot(221)
                 plt.title('S')
-                plt.imshow(Snew)
+                plt.imshow(Snew, origin='lower')
                 plt.subplot(222)
                 plt.title('FS')
-                plt.imshow(FS)
+                plt.imshow(FS, origin='lower')
                 plt.subplot(223)
                 plt.title('FG')
-                plt.imshow(FG)
+                plt.imshow(FG, origin='lower')
                 plt.subplot(224)
                 plt.title('Residuals')
-                plt.imshow(Y - FS - FG)
+                plt.imshow(Y - FS - FG, origin='lower')
                 plt.savefig('Res' + str(i) + '.png')
             i += 1
             # Weighting
@@ -1077,7 +1091,7 @@ def plot_cube(cube):
     j = 2
     for k in range(n):
         plt.subplot(i,j,k)
-        plt.imshow(cube[k,:,:]); plt.colorbar()
+        plt.imshow(cube[k,:,:], origin='lower'); plt.colorbar()
 
     return None
 

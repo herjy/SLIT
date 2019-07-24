@@ -134,6 +134,7 @@ def F(kappa, nt1, nt2, size, x_shear=0, y_shear=0, alpha_x_in=None, alpha_y_in=N
 
 
     if (alpha_x_in is not None) and (alpha_y_in is not None):
+        print("Deflection angles have been provided")
         alpha_x = alpha_x_in
         alpha_y = alpha_y_in
     else:
@@ -142,74 +143,68 @@ def F(kappa, nt1, nt2, size, x_shear=0, y_shear=0, alpha_x_in=None, alpha_y_in=N
     alpha_x = alpha_x + x_shear
     alpha_y = alpha_y + y_shear
 
-
-    na1,na2 = np.shape(alpha_x)
-    xa,ya = np.where(np.zeros((na1,na2)) == 0)
+    na1, na2 = np.shape(alpha_x)
+    xa, ya = np.where(np.zeros((na1, na2)) == 0)
 
     nb1 = int(nt1*size)
     nb2 = int(nt2*size)
-    xb, yb = np.where(np.zeros((nb1,nb2))==0)
+    xb, yb = np.where(np.zeros((nb1, nb2)) == 0)
 
     #Scaling of the source grid
 
     #Scaling of the deflection grid
-    xa = xa*(np.float(nt1)/np.float(na1))
-    ya = ya*(np.float(nt2)/np.float(na2))
+    xa = xa * float(nt1) / float(na1)
+    ya = ya * float(nt2) / float(na2)
 
     #Setting images coordinates in 2d
-    xa2d = np.reshape(xa,(na1,na2))
-    ya2d = np.reshape(ya,(na1,na2))
+    xa2d = np.reshape(xa, (na1, na2))
+    ya2d = np.reshape(ya, (na1, na2))
 
-
-
-    F2 = []
+    F2 = []  # TODO : try multiprocessing for the loop below
     for i in range(np.size(xb)):
         #Deflection of photons emitted in xb[i],yb[i]
-        theta_x = (xb[i])*(np.float(nt1)/np.float(nb1))+alpha_x
-        theta_y = (yb[i])*(np.float(nt2)/np.float(nb2))+alpha_y
+        theta_x = xb[i] * float(nt1) / float(nb1) + alpha_x
+        theta_y = yb[i] * float(nt2) / float(nb2) + alpha_y
 
         #Matching of arrivals with pixels in image plane
-        xprox = np.int_(np.abs((xa2d-theta_x)*2))
-        yprox = np.int_(np.abs((ya2d-theta_y)*2))
+        xprox = np.int_(np.abs((xa2d - theta_x) * 2))
+        yprox = np.int_(np.abs((ya2d - theta_y) * 2))
 
-        if np.min(xprox+yprox) == 0:
-            loc2 = np.array(np.where((xprox+yprox)==np.min(xprox+yprox)))*np.float(nt1)/np.float(na1)#
+        if np.min(xprox + yprox) == 0:
+            loc2 = np.array(np.where((xprox + yprox) == 0)) * float(nt1) / float(na1)
+            loc2_pix = np.int_(loc2)
         else:
-            loc2 = []
-        if (np.size(loc2)==0):
-
-            F2.append([0])
-        else:
-            F2.append(np.int_(loc2))#-1
-
+            loc2_pix = None
+        
+        F2.append(loc2_pix)
+        
     return F2
 
 
-def source_to_image(Source, nt1,nt2, theta, ones = 1):
+def source_to_image(Source, nt1,nt2, theta, ones=1):
     # Source: Image of the source in the source plane
     # n1,n2: size in pixels of the postage stamp in image plane
     # F: the coordinates of the lens mapping
     F = theta
-    nb1,nb2 = np.shape(Source)
+    nb1, nb2 = np.shape(Source)
 
     if ones == 1:
-        onelens = source_to_image(np.ones(Source.shape), nt1,nt2, theta, ones = 0)
-        onelens[np.where(onelens==0)]=1
-
+        onelens = source_to_image(np.ones(Source.shape), nt1, nt2, theta, ones=0)
+        onelens[np.where(onelens == 0)] = 1
     else:
         onelens = 1.
 
     Image = np.zeros((nt1,nt2))
-    xb,yb = np.where(np.zeros((nb1,nb2)) == 0)
+    xb, yb = np.where(np.zeros((nb1,nb2)) == 0)
 
     N = np.size(xb)
-    k=0
+    k = 0
     for pos in F:
-        if np.size(np.shape(pos)) != 1:
+        if pos is not None:
             Image[np.array(pos[0][:]),
-                  np.array(pos[1][:])] += Source[xb[k],yb[k]]#fullSource
+                  np.array(pos[1][:])] += Source[xb[k], yb[k]] #fullSource
 
-        k=k+1
+        k += 1
 
     return Image/onelens
 
@@ -230,7 +225,7 @@ def image_to_source(Image, size,beta,lensed = 0, square = 0):
 
     for k in range(N):
         pos = F[k]
-        if np.size(np.shape(pos)) > 1:
+        if pos is not None:
 
             light = Image[np.array(pos[0][:]), np.array(pos[1][:])]
 
@@ -261,7 +256,7 @@ def image_to_source_bound(Image, size,beta,lensed = 0):
     N = np.size(xb)
     for k in range(N):
         pos = F[k]
-        if np.size(np.shape(pos)) > 1:
+        if pos is not None:
             if np.sum(lensed) !=0:
                 Source[xb[k],yb[k]] += np.sum(Image[np.array(pos[0][:]),
                                                np.array(pos[1][:])])/np.max([1,np.size(pos[0][:])])
