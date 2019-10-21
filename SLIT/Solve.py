@@ -62,6 +62,8 @@ def SLIT(input_image, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels 
     else:
         lvl = np.min([lvl,np.int(np.log2(ns2))])
 
+    print("number of starlet scales ('lvl') :", lvl)
+
     lvlg = int(np.log2(n2))
     #Masking if required
     if np.sum(mask) == 0:

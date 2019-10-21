@@ -171,13 +171,13 @@ def F(kappa, nt1, nt2, size, x_shear=0, y_shear=0, alpha_x_in=None, alpha_y_in=N
         yprox = np.int_(np.abs((ya2d - theta_y) * 2))
 
         if np.min(xprox + yprox) == 0:
-            loc2 = np.array(np.where((xprox + yprox) == 0)) * float(nt1) / float(na1)
+            loc2 = np.array(np.where((xprox + yprox) == 0)) #* float(nt1) / float(na1) because always 1 ;)
             loc2_pix = np.int_(loc2)
         else:
             loc2_pix = None
         
         F2.append(loc2_pix)
-        
+
     return F2
 
 
@@ -198,13 +198,10 @@ def source_to_image(Source, nt1,nt2, theta, ones=1):
     xb, yb = np.where(np.zeros((nb1,nb2)) == 0)
 
     N = np.size(xb)
-    k = 0
-    for pos in F:
+    for k, pos in enumerate(F):
         if pos is not None:
             Image[np.array(pos[0][:]),
                   np.array(pos[1][:])] += Source[xb[k], yb[k]] #fullSource
-
-        k += 1
 
     return Image/onelens
 
@@ -223,8 +220,8 @@ def image_to_source(Image, size,beta,lensed = 0, square = 0):
     xb,yb = np.where(Source == 0)
     N = np.size(xb)
 
-    for k in range(N):
-        pos = F[k]
+    for k, pos in enumerate(F):
+        
         if pos is not None:
 
             light = Image[np.array(pos[0][:]), np.array(pos[1][:])]
