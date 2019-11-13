@@ -1,0 +1,9 @@
+!.gitignore
+.DS_Store
+**/.DS_Store
+*.pyc
+**/*.pyc
+**/__pycache__
+**/*.egg-info
+build
+dist

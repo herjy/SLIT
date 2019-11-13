@@ -1,21 +1,81 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
-import pyfits as pf
-from scipy import signal as scp
-import gaussian as gs
-import scipy.ndimage.filters as sc
-import scipy.ndimage.filters as med
-import scipy.signal as cp
+import astropy.io.fits as pf
+import scipy.signal as scs
+import scipy.ndimage.filters as scf
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-def MOM(A, B, levelA, levelB):
-    A = A[:-1,:,:]
-    B = B[:-1,:,:]
-    levelA = levelA[:-1,:,:]
-    levelB = levelB[:-1,:,:]
-    Amax = np.max(A[levelA!=0]/levelA[levelA!=0])
-    Bmax = np.max(B[levelB!=0]/levelB[levelB!=0])
-    k = np.min([Amax, Bmax])
-    return k+0.1*np.abs(Amax-Bmax)
+from SLIT import transform as tr
+
+# try:
+#     import pysap
+# except ImportError:
+#     pysap_installed = False
+# else:
+#     pysap_installed = True
+pysap_installed = False
+
+# TODO : terminate proper PySAP inegration (i.e. manage the 'pysap_transform' 
+# object returned by wave_transform(), then pass it to iuwt())
+
+
+def wave_transform(img, lvl, Filter='Bspline', newwave=1, convol2d=0, verbose=False):
+    original_warning = "--> using original wavelet algorithm instead"
+    
+    if pysap_installed:
+        if newwave == 0:
+            coeffs, pysap_transform = tr.uwt_pysap(img, lvl, Filter=Filter)
+        else:
+            if verbose:
+                print("WARNING : PySAP does not support 2nd gen starlet")
+                print(original_warning)
+            coeffs = tr.uwt_original(img, lvl, Filter='Bspline', 
+                                     newwave=newwave, convol2d=convol2d)
+            pysap_transform = None
+    else:
+        if verbose:
+            print("WARNING : PySAP not installed or not found")
+            print(original_warning)
+        coeffs = tr.uwt_original(img, lvl, Filter='Bspline', 
+                                 newwave=newwave, convol2d=convol2d)
+        pysap_transform = None
+    return coeffs, pysap_transform
+
+def iuwt(wave, newwave=1, convol2d=0, pysap_transform=None, verbose=False):
+    original_warning = "--> using original transform algorithm instead"
+    
+    if pysap_installed:
+        if newwave == 0:
+            if pysap_transform is None:
+                raise RuntimeError("PySAP transform required for synthesis")
+            recon = tr.iuwt_pysap(wave, pysap_transform, fast=True)
+        else:
+            if verbose:
+                print("WARNING : PySAP does not support 2nd gen starlet")
+                print(original_warning)
+            coeffs = tr.iuwt_original(wave, convol2d=convol2d, newwave=newwave, fast=True)
+    
+    else:
+        if verbose:
+            print("WARNING : PySAP not installed or not found")
+            print(original_warning)
+        recon = tr.iuwt_original(wave, convol2d=convol2d, newwave=newwave)
+    return recon
+        
+def MOM(S, G, levelS, levelG):
+    S = S[:-1,:,:]
+    G = G[:-1,:,:]
+    levelS = levelS[:-1,:,:]
+    levelG = levelG[:-1,:,:]
+
+    sel = ((levelS!=0))
+
+    Smax = np.max(np.abs(S[sel])/levelS[sel])
+    Gmax = np.max(np.abs(G[levelG!=0])/levelG[levelG!=0])
+
+    k = np.min([Smax, Gmax])
+    return k+0.001*np.abs(Smax-Gmax)
 
 def MAD(x,n=3):
     ##DESCRIPTION:
@@ -30,8 +90,9 @@ def MAD(x,n=3):
     ##OUTPUTS:
     ##  -S: the source light profile.
     ##  -FS: the lensed version of the estimated source light profile
-    x = wave_transform(x, np.int(np.log2(x.shape[0])))[0,:,:]
-    meda = med.median_filter(x,size = (n,n))
+    coeffs, _ = wave_transform(x, np.int(np.log2(x.shape[0])))
+    x = coeffs[0,:,:]
+    meda = scf.median_filter(x,size = (n,n))
     medfil = np.abs(x-meda)#np.median(x))
     sh = np.shape(x)
     sigma = 1.48*np.median((medfil))
@@ -39,7 +100,8 @@ def MAD(x,n=3):
 
 def MAD_box(x, tau):
     n1,n2 = x.shape
-    xw = wave_transform(x,2)[0,:,:]
+    coeffs, _ = wave_transform(x,2)
+    xw, _ = coeffs[0,:,:]
     winsize = 6
     xw_pad = np.pad(xw, ((winsize/2, winsize/2),(winsize/2, winsize/2)), mode = 'symmetric')
 
@@ -67,7 +129,8 @@ def MAD_poisson(x,tau,lvl):
 
     x0 = np.copy(x)
     def transform(i):
-        return wave_transform(i,lvl)
+        coeffs, _ = wave_transform(i,lvl)
+        return coeffs
     levels = level(n1,n2,lvl)*MAD(x)
     new_x = np.copy(x)
     new_x, y = mr_filter(new_x,levels, 8, 20, transform, iuwt, MAD(x), lvl = lvl)
@@ -84,10 +147,10 @@ def level_poisson(n1,n2, lvl,transform,sigma):
     levels = np.zeros(wave_dirac.shape)
     for i in range(lvl):
         if np.size(sigma.shape) > 2:
-            lvlso = (scp.fftconvolve(sigma[i, :, :] ** 2, wave_dirac[i, :, :] ** 2,
+            lvlso = (scs.fftconvolve(sigma[i, :, :] ** 2, wave_dirac[i, :, :] ** 2,
                                      mode='same'))
         else:
-            lvlso = scp.fftconvolve(sigma ** 2, wave_dirac[i,:,:] ** 2,
+            lvlso = scs.fftconvolve(sigma ** 2, wave_dirac[i,:,:] ** 2,
                                     mode='same')
 
         levels[i, :, :] = np.sqrt(np.abs(lvlso))
@@ -95,7 +158,6 @@ def level_poisson(n1,n2, lvl,transform,sigma):
     return levels
 
 def Forward_Backward(Y, X, F_op, I_op, transform, inverse, mu, reg, pos = 1, subiter = 0):
-
     R = mu*I_op(Y-F_op(X))
     Xnew = np.copy(X+R)
     Xnew = inverse(reg(transform(Xnew)))
@@ -114,9 +176,9 @@ def SDR(X, Y):
 def Res(X,Y,sigma):
     return np.sqrt(np.sum(((X-Y)/sigma)**2)/X.size)#np.std((X-Y)**2/sigma**2)
 
-
 def FISTA(Y, alphaX, F_op, I_op, mu, ts, csi, reg, transform, inverse, pos = 1, mask = 1):
     S = inverse(alphaX)
+    # S = inverse(csi)  # isn't it the standard FISTA behaviour ?
 
     R = mu*I_op(Y-F_op(S)*mask)
     alpha = transform(R)+csi
@@ -135,9 +197,10 @@ def Soft(X, level, k, supp =1, Kill = 0):
         Xnew[-1,:,:] = 0
     else:
         Xnew[-1, :, :] = X[-1,:,:]
-    
+
     #print(Xnew.shape, supp.shape)
- #   Xnew = Xnew*supp
+    Xnew = Xnew*supp
+
     return Xnew
 
 
@@ -152,8 +215,10 @@ def level(n1, n2, lvl):
     ##  -levels: units of noise levels at each scale and location of a starlet transform
     dirac = np.zeros((n1, n2))
     #   lvl = np.int(np.log2(n1))
-    dirac[n1 / 2, n2 / 2] = 1
-    wave_dirac = wave_transform(dirac, lvl, newwave=0)
+
+    dirac[int(n1 / 2), int(n2 / 2)] = 1
+
+    wave_dirac, _ = wave_transform(dirac, lvl, newwave=0)
 
     wave_sum = np.sqrt(np.sum(np.sum(wave_dirac ** 2, 1), 1))
 
@@ -163,7 +228,7 @@ def level(n1, n2, lvl):
 
 def Soft_Threshold(X, transform, inverse, level, k, supp =1, Kill = 0):
     X = transform(X)
-    alpha = wave_transform(X,Xw.shape[0],newwave = 0)
+    alpha, _ = wave_transform(X,Xw.shape[0],newwave = 0)
     M = np.zeros(alpha.shape)
     M[np.abs(alpha)-level*k>0] = 1
     M[0,:,:] = 0
@@ -194,7 +259,7 @@ def Hard(X, level, k, supp=1):
 def Hard_Threshold(X, transform, inverse, level, k, supp=1, M = [0]):
     Xw = transform(X)
     if np.sum(M) == 0:
-        alpha = wave_transform(X,Xw.shape[0],newwave = 0)
+        alpha, _ = wave_transform(X,Xw.shape[0],newwave = 0)
         M = np.zeros(alpha.shape)
         M[(np.abs(alpha)-level*k)>0] = 1
         M[0,:,:] = 0
@@ -208,7 +273,7 @@ def Hard_Threshold(X, transform, inverse, level, k, supp=1, M = [0]):
 
 def mr_filter(Y, level, k, niter, transform, inverse, sigma, lvl = 6, Soft = 0, pos = 1, supp = 1):
     Xnew = 0
-    alpha = wave_transform(Y, lvl, newwave=0)
+    alpha,  _ = wave_transform(Y, lvl, newwave=0)
     M = np.zeros(alpha.shape)
     M[np.abs(alpha)-level*k>0] = 1
     M[0,:,:] = 0
@@ -236,108 +301,6 @@ def mr_filter(Y, level, k, niter, transform, inverse, sigma, lvl = 6, Soft = 0, 
 
     return (Xnew), M
 
-def wave_transform(img, lvl, Filter = 'Bspline', newwave = 1, convol2d = 0):
-
-    mode = 'nearest'
-    
-    lvl = lvl-1
-    sh = np.shape(img)
-    if np.size(sh) ==3:
-        mn = np.min(sh)
-        wave = np.zeros([lvl+1,sh[1], sh[1],mn])
-        for h in np.linspace(0,mn-1, mn):
-            if mn == sh[0]:
-                wave[:,:,:,h] = wave_transform(img[h,:,:],lvl+1, Filter = Filter)
-            else:
-                wave[:,:,:,h] = wave_transform(img[:,:,h],lvl+1, Filter = Filter)
-        return wave
-
-    n1 = sh[1]
-    n2 = sh[1]
-    
-    if Filter == 'Bspline':
-        h = [1./16, 1./4, 3./8, 1./4, 1./16]
-    else:
-        h = [1./4,1./2,1./4]
-    n = np.size(h)
-    h = np.array(h)
-    
-    lvl = np.min([lvl,np.int(np.log2(n2))])
-
-    c = img
-    ## wavelet set of coefficients.
-    wave = np.zeros([lvl+1,n1,n2])
-  
-    for i in np.linspace(0,lvl-1,lvl):
-        newh = np.zeros((1,n+(n-1)*(2**i-1)))
-        newh[0,np.int_(np.linspace(0,np.size(newh)-1,len(h)))] = h
-        H = np.dot(newh.T,newh)
-
-        ######Calculates c(j+1)
-        ###### Line convolution
-        if convol2d == 1:
-            cnew = cp.convolve2d(c, H, mode='same', boundary='symm')
-        else:
-            cnew = sc.convolve1d(c,newh[0,:],axis = 0, mode =mode)
-
-            ###### Column convolution
-            cnew = sc.convolve1d(cnew,newh[0,:],axis = 1, mode =mode)
-
- 
-      
-        if newwave ==1:
-            ###### hoh for g; Column convolution
-            if convol2d == 1:
-                hc = cp.convolve2d(cnew, H, mode='same', boundary='symm')
-            else:
-                hc = sc.convolve1d(cnew,newh[0,:],axis = 0, mode = mode)
- 
-                ###### hoh for g; Line convolution
-                hc = sc.convolve1d(hc,newh[0,:],axis = 1, mode = mode)
-            
-            ###### wj+1 = cj-hcj+1
-            wave[i,:,:] = c-hc
-            
-        else:
-            ###### wj+1 = cj-cj+1
-            wave[i,:,:] = c-cnew
-
-
-        c = cnew
-     
-    wave[i+1,:,:] = c
-
-    return wave
-
-def iuwt(wave, convol2d =0):
-    mode = 'nearest'
-    
-    lvl,n1,n2 = np.shape(wave)
-    h = np.array([1./16, 1./4, 3./8, 1./4, 1./16])
-    n = np.size(h)
-
-    cJ = np.copy(wave[lvl-1,:,:])
-    
-    
-    for i in np.linspace(1,lvl-1,lvl-1):
-        
-        newh = np.zeros((1,n+(n-1)*(2**(lvl-1-i)-1)))
-        newh[0,np.int_(np.linspace(0,np.size(newh)-1,len(h)))] = h
-        H = np.dot(newh.T,newh)
-
-        ###### Line convolution
-        if convol2d == 1:
-            cnew = cp.convolve2d(cJ, H, mode='same', boundary='symm')
-        else:
-          cnew = sc.convolve1d(cJ,newh[0,:],axis = 0, mode = mode)
-            ###### Column convolution
-          cnew = sc.convolve1d(cnew,newh[0,:],axis = 1, mode = mode)
-
-        cJ = cnew+wave[lvl-1-i,:,:]
-
-    return np.reshape(cJ,(n1,n2))
-
-
 def plot_cube(cube):
     ##DESCRIPTION:
     ##    Plotting device that displays layers of a cube in different subplot panels.
@@ -357,3 +320,111 @@ def plot_cube(cube):
         plt.imshow(cube[k,:,:]); plt.colorbar()
 
     return None
+
+def Downsample(image, factor=1):
+    """
+    resizes image with nx x ny to nx/factor x ny/factor
+    :param image: 2d image with shape (nx,ny)
+    :param factor: integer >=1
+    :return:
+    """
+    if factor < 1:
+        raise ValueError('scaling factor in re-sizing %s < 1' %factor)
+    f = int(factor)
+    nx, ny = np.shape(image)
+    if int(nx/f) == nx/f and int(ny/f) == ny/f:
+        small = image.reshape([int(nx/f), f, int(ny/f), f]).mean(3).mean(1)
+        return small
+    else:
+        raise ValueError("scaling with factor %s is not possible with grid size %s, %s" %(f, nx, ny))
+
+def Upsample(image, factor):
+    factor = int(factor)
+    n1,n2 = image.shape
+    upimage = np.zeros((n1*factor, n2*factor))
+    x,y = np.where(upimage==0)
+    upimage[x,y] = image[(x/factor),(y/factor)]/factor**2
+    return upimage
+
+
+def nice_colorbar(mappable, position='right', pad=0.1, size='5%', **kwargs):
+    kwargs.update({'position': position, 'pad': pad, 'size': size})
+    ax = mappable.axes
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes(**kwargs)
+    return plt.colorbar(mappable, cax=cax)
+
+def save_steps(save_steps_dir, steps_to_save, input_image, suffix=""):
+    if not os.path.exists(save_steps_dir):
+        os.mkdir(save_steps_dir)
+
+    # get vmax for color map levels
+    steps_array = np.array(steps_to_save)
+    vmin_src = np.min(steps_array[:, 0, :, :])
+    vmax_src = np.max(steps_array[:, 0, :, :])
+    vmin_img = np.min(steps_array[:, 1, :, :])
+    vmax_img = np.max(steps_array[:, 1, :, :])
+    vmax_res = np.max(np.abs(steps_array[:, 2, :, :]))
+
+    # save animated plot for each step
+
+    fig, axes = plt.subplots(1, 4, figsize=(24, 5))
+
+    step_str = ", step 0"
+    S0, FS0, res0 = steps_to_save[0]
+
+    # fig, axes = plt.subplots(1, 4, figsize=(24, 5))
+    ax = axes[0]
+    ax.set_title("$Y$")
+    im = ax.imshow(input_image, origin='lower', cmap='gist_stern')
+    nice_colorbar(im)
+    ax = axes[1]
+    ax.set_title("$FS$" + step_str)
+    im = ax.imshow(FS0, origin='lower', cmap='gist_stern',
+                   vmin=vmin_img, vmax=vmax_img)
+    nice_colorbar(im)
+    ax = axes[2]
+    ax.set_title("$S$" + step_str)
+    im = ax.imshow(S0, origin='lower', cmap='gist_stern',
+                   vmin=vmin_src, vmax=vmax_src)
+    nice_colorbar(im)
+    ax = axes[3]
+    ax.set_title("$Y - FS$" + step_str)
+    im = ax.imshow(input_image-FS0, origin='lower', cmap='bwr_r', 
+                   vmin=-vmax_res, vmax=vmax_res)
+    nice_colorbar(im)
+
+    # for j, (Snew_j, FS_j) in enumerate(steps_to_save):
+    def one_step(j):
+        step_str = ", step {}".format(j)
+        S, FS, res = steps_to_save[j]
+
+        ax = axes[1]
+        ax.set_title("$FS$" + step_str)
+        ax.imshow(FS, origin='lower', cmap='gist_stern',
+                       vmin=vmin_img, vmax=vmax_img)
+        # nice_colorbar(im)
+        ax = axes[2]
+        ax.set_title("$S$" + step_str)
+        ax.imshow(S, origin='lower', cmap='gist_stern',
+                       vmin=vmin_src, vmax=vmax_src)
+        # nice_colorbar(im)
+        ax = axes[3]
+        ax.set_title("$Y - FS$" + step_str)
+        ax.imshow(res, origin='lower', cmap='bwr_r',
+                  vmin=-vmax_res, vmax=vmax_res)
+        # nice_colorbar(im)
+
+        # fig_name = "SLIT_step{}.png".format(j)
+        # fig.savefig(os.path.join(save_steps_dir, fig_name), dpi=100)
+        # plt.close()
+
+    from matplotlib.animation import FuncAnimation
+
+    anim = FuncAnimation(fig, one_step, interval=500, frames=len(steps_to_save))
+    
+    video_path = os.path.join(save_steps_dir, "SLIT_all_steps_{}.mp4".format(suffix))
+    anim.save(video_path)
+
+    print("Step-by-step timelapse saved to {}".format(video_path))
+
