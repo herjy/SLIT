@@ -1,9 +1,10 @@
-import pyfits as pf
+import astropy.io.fits as pf
 import matplotlib.pyplot as plt 
 import numpy as np
 import matplotlib.cm as cm
 
-import SLIT 
+import SLIT.Solve
+import SLIT.Lens
 import time
 from scipy import signal as scp
 import warnings
@@ -75,17 +76,18 @@ Image = I2+np.random.randn(nt1,nt2)*sigma
 ################################Running SLIT############################
 #Parameters
 kmax = 5
-niter =100
+niter = 100
 levels = [0]
 
 #Comment the following to have the level estimation routine run (takes more time)
-levels = pf.open('../Files/Noise_levels_SLIT.fits')[0].data
+# levels = pf.open('../Files/Noise_levels_SLIT.fits')[0].data
 
 #Start clock
 start = time.clock()
 
 #Running SLIT
-sourcesl, Imsl = SLIT.SLIT(Image, Fkappa, kmax, niter, size, PSF, PSFconj, levels = levels, fb =1)
+sourcesl, Imsl, Res1, Res2, sigma0 = SLIT.Solve.SLIT(Image, Fkappa, kmax, niter, size, PSF, PSFconj, 
+                                                     levels=levels, scheme='FB', show_plots=True)
 
 #Stop clock
 elapsed = (time.clock()-start)
@@ -110,25 +112,33 @@ for i in [1]:
     plt.imshow((sourcesl), vmin = np.min(real_source), vmax = np.max(real_source),cmap = cm.gist_stern, interpolation = 'nearest')
     plt.axis('off')
     plt.colorbar()
+    plt.savefig("Test_SLIT_fig2.png")
+    plt.close()
 #    plt.subplot(2,3,2)
     plt.figure(3)
     plt.title('Original source')
     plt.imshow(real_source, cmap = cm.gist_stern, interpolation = 'nearest')
     plt.axis('off')
     plt.colorbar()
+    plt.savefig("Test_SLIT_fig3.png")
+    plt.close()
  #   plt.subplot(2,3,3)
     plt.figure(4)
     plt.title('Lensed source')
     plt.imshow(Image, cmap = cm.gist_stern, interpolation = 'nearest')
     plt.axis('off')
     plt.colorbar()
-    plt.figure(41)
+    plt.savefig("Test_SLIT_fig4.png")
+    plt.close()
+    plt.figure(5)
     plt.title('Reconstructed lensed source')
     plt.imshow(Imsl, vmin = np.min(Image), vmax = np.max(Image), cmap = cm.gist_stern, interpolation = 'nearest')
     plt.axis('off')
     plt.colorbar()
- #   plt.subplot(2,3,4)
-    plt.figure(5)
+    plt.savefig("Test_SLIT_fig5.png")
+    plt.close()
+#    plt.subplot(2,3,4)
+    plt.figure(6)
     plt.title('relative difference')
     diff = (real_source-sourcesl)/real_source
     diff[np.where(real_source==0)] = 0
@@ -136,16 +146,22 @@ for i in [1]:
     plt.imshow(np.abs(diff), vmax = 1., vmin = 0., cmap = cm.gist_stern, interpolation = 'nearest' )
     plt.axis('off')
     plt.colorbar()
+    plt.savefig("Test_SLIT_fig6.png")
+    plt.close()
  #   plt.subplot(2,3,5)
-    plt.figure(6)
+    plt.figure(7)
     plt.title('difference with reconstructed lensed image')
     plt.imshow(Image-Imsl, vmin = -5*sigma, vmax = 5*sigma, cmap = cm.gist_stern, interpolation = 'nearest')
     plt.axis('off')
     plt.colorbar()
+    plt.savefig("Test_SLIT_fig7.png")
+    plt.close()
  #   plt.subplot(2,3,6)
-    plt.figure(7)
+    plt.figure(8)
     plt.title('difference with true source')
     plt.imshow((np.abs(real_source-sourcesl)), cmap = cm.gist_stern, interpolation = 'nearest')
     plt.axis('off')
     plt.colorbar()
-plt.show()
+    plt.savefig("Test_SLIT_fig8.png")
+    plt.close()
+# plt.show()
