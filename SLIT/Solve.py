@@ -20,8 +20,7 @@ warnings.simplefilter("ignore")
 
 def SLIT(input_image, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels = [0], scheme = 'FB',
          mask = [0], lvl = 0, weightS = 1, noise = 'gaussian', tau = 0, verbosity = 0, nweights = 1,
-         noise_levels_file='Noise_levels.fits', original_fista=False, 
-         save_steps_dir=None, show_plots=False):
+         noise_levels_file='Noise_levels.fits', save_steps_dir=None, show_plots=False):
     ##DESCRIPTION:
     ##    Function that estimates the source light profile from an image of a lensed source given the mass density profile.
     ##
@@ -244,7 +243,7 @@ def SLIT(input_image, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels 
 
                 # S = np.copy(Snew)
                 alphanew = np.copy(alpha)
-                alpha, csi, ts = tools.FISTA(Y, alphanew, F_op, I_op, mu, ts, csi, reg1, transform, inverse, mask=mask, original_fista=original_fista)
+                alpha, csi, ts = tools.FISTA(Y, alphanew, F_op, I_op, mu, ts, csi, reg1, transform, inverse, mask=mask)
                 Snew = inverse(alpha)
                 #FS = F_op(Snew)
 
@@ -315,7 +314,7 @@ def SLIT(input_image, Fkappa, kmax, niter, size, PSF, PSFconj, S0 = [0], levels 
 
 def SLIT_MCA(input_image, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 0, lvls = 0, noise = 'gaussian', scheme = 'FISTA', decrease = 0,
              tau =0, levels = [0], WS = 1, WG = 1, mask = [0,0], Sinit = 0, Ginit=0, Kills = 0, Killg = 0, verbosity = 0, nweight = 5,
-             original_fista=False, noise_levels_file='Noise_levels_MCA.fits'):
+             noise_levels_file='Noise_levels_MCA.fits'):
     ##DESCRIPTION:
     ##    Function that estimates the source and lens light profiles from an image of a
     ##          strong lens system
@@ -513,7 +512,7 @@ def SLIT_MCA(input_image, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 
     riter0 = np.copy(riter)
 
     #Reweighting loop
-    # k = tools.MOM(transform(Y), transform(Y), levelg, levelg)  # original code
+    # k = tools.MOM(transform(Y), transform(Y), levelg, levelg)  # ORIGINAL CODE
     k = tools.MOM(transform(Y), transform(Y), levels, levelg)
     k0 = np.copy(k)
     karg = np.log(kmax / k0) / (niter - 10.)
@@ -528,8 +527,8 @@ def SLIT_MCA(input_image, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 
     else:
         S = Sinit
 
-    # FS = FG_op(G)  # original code
-    # FG = FS_op(S)  # original code
+    # FS = FG_op(G)  # ORIGINAL CODE
+    # FG = FS_op(S)  # ORIGINAL CODE
     FS = 0
     FG = 0
     Gnew = np.copy(G)
@@ -553,7 +552,7 @@ def SLIT_MCA(input_image, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 
         tg = 1
         ts = 1
         if decrease == 1:
-            # k = tools.MOM(transform(Y), transform(Y), levelg, levelg)  # original code
+            # k = tools.MOM(transform(Y), transform(Y), levelg, levelg)  # ORIGINAL CODE
             k = tools.MOM(transform(Y), transform(Y), levels, levelg)
         else:
             k = kmax
@@ -574,7 +573,7 @@ def SLIT_MCA(input_image, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 
 
 
             k = k-step#k0 * np.exp(i * karg)#
-            # kMOM = tools.MOM(transform(DS), transform(DG), levelg, levelg)  # original code
+            # kMOM = tools.MOM(transform(DS), transform(DG), levelg, levelg)  # ORIGINAL CODE
             kMOM = tools.MOM(transform(DS), transform(DG), levels, levelg)
 
             if kMOM<k:
@@ -597,7 +596,7 @@ def SLIT_MCA(input_image, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 
                 if scheme == 'FISTA':
                     alphaS = np.copy(alphaSnew)
                     alphaSnew, csiS, ts = tools.FISTA(DS, alphaS, FS_op, IS_op, muS, ts, csiS, regS1, transform,
-                                                      inverse, pos=0, original_fista=original_fista)
+                                                      inverse, pos=0)
 
                 if scheme == 'Vu':
                     alphaS = np.copy(alphaSnew)
@@ -629,7 +628,7 @@ def SLIT_MCA(input_image, Fkappa, kmax, niter, riter, size,PSF, PSFconj, lvlg = 
             for j2 in range(1):
                 if scheme == 'FISTA':
                     alphaG = np.copy(alphaGnew)
-                    alphaGnew, csiG, tg = tools.FISTA(DG, alphaG, FG_op, IG_op, muG, tg, csiG, regG1, transform, inverse, pos = 0, original_fista=original_fista)
+                    alphaGnew, csiG, tg = tools.FISTA(DG, alphaG, FG_op, IG_op, muG, tg, csiG, regG1, transform, inverse, pos = 0)
 
 
 

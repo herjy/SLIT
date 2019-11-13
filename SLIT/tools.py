@@ -176,11 +176,9 @@ def SDR(X, Y):
 def Res(X,Y,sigma):
     return np.sqrt(np.sum(((X-Y)/sigma)**2)/X.size)#np.std((X-Y)**2/sigma**2)
 
-def FISTA(Y, alphaX, F_op, I_op, mu, ts, csi, reg, transform, inverse, pos = 1, mask = 1, original_fista=False):
-    if not original_fista: 
-        S = inverse(alphaX)
-    else:
-        S = inverse(csi)  # this is the original FISTA behaviour
+def FISTA(Y, alphaX, F_op, I_op, mu, ts, csi, reg, transform, inverse, pos = 1, mask = 1):
+    S = inverse(alphaX)
+    # S = inverse(csi)  # isn't it the standard FISTA behaviour ?
 
     R = mu*I_op(Y-F_op(S)*mask)
     alpha = transform(R)+csi
